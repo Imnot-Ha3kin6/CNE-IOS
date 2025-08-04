@@ -15,6 +15,32 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install Build Tools
+      run: |
+        echo "Installing required build tools..."
+        # Check if make is available
+        if ! which make; then
+          echo "Installing make and build essentials..."
+          # Install Xcode command line tools if not already installed
+          xcode-select --install 2>/dev/null || echo "Command line tools already installed"
+          
+          # Add common build tool paths to environment
+          echo "/usr/bin" >> $GITHUB_PATH
+          echo "/bin" >> $GITHUB_PATH
+          
+          # Verify tools are available
+          echo "Checking for make..."
+          ls -la /usr/bin/make || echo "Make not found in /usr/bin"
+          ls -la /bin/make || echo "Make not found in /bin"
+          
+          # Try installing via brew as fallback
+          if command -v brew >/dev/null 2>&1; then
+            brew install make || echo "Could not install make via brew"
+          fi
+        else
+          echo "Make is already available at: $(which make)"
+        fi
+      
     - name: Find Xcode Project
       run: |
         echo "Looking for Xcode project..."
@@ -128,6 +154,11 @@ jobs:
           
           if grep -q "No such file or directory" build_output.log; then
             echo "❌ Missing file issue detected"
+            if grep -q "unable to spawn process.*make" build_output.log; then
+              echo "❌ Make command not found - installing build tools..."
+              # Try to install make if it's missing
+              which make || echo "Make is not available in the system PATH"
+            fi
           fi
           
           if grep -q "Build input file cannot be found" build_output.log; then
