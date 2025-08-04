@@ -1,4 +1,4 @@
-name: Build iOS Appp
+name: Build iOS App
 
 on:
   push:
@@ -38,9 +38,28 @@ jobs:
       run: |
         haxelib run lime setup ios -y
         
+    - name: Debug Project Files
+      run: |
+        echo "=== Current Directory ==="
+        pwd
+        echo "=== All Files ==="
+        ls -la
+        echo "=== XML Files ==="
+        find . -name "*.xml" -type f
+        echo "=== Project.xml Content ==="
+        cat Project.xml || echo "Cannot read Project.xml"
+        echo "=== File Permissions ==="
+        ls -la Project.xml || echo "Project.xml not found"
+        
     - name: Build iOS
       run: |
-        haxelib run lime build ios -release
+        if [ -f "Project.xml" ]; then
+          echo "Project.xml exists, building..."
+          haxelib run lime build ios -release
+        else
+          echo "Project.xml still not found!"
+          exit 1
+        fi
         
     - name: Upload IPA
       uses: actions/upload-artifact@v4
