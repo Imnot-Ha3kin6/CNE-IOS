@@ -192,61 +192,28 @@ jobs:
         
         echo "=== Applying compatibility fixes ==="
         
-        # Fix HScript.hx issues
+        # Fix HScript.hx issues - DIRECT APPROACH
         if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
-          echo "Fixing HScript.hx compatibility issues..."
+          echo "Fixing HScript.hx - direct line replacement..."
           
           # Create backup
           cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
           
-          # Show the problematic line first
-          echo "Checking line 84 (hscript.Error issue):"
-          sed -n '84p' source/funkin/backend/scripting/HScript.hx || echo "Line 84 not found"
-          echo "Context around line 84:"
-          sed -n '80,88p' source/funkin/backend/scripting/HScript.hx || echo "Lines not found"
+          # Show the problematic line
+          echo "Original line 84:"
+          sed -n '84p' source/funkin/backend/scripting/HScript.hx
           
-          # Fix String.startsWith issue (add null check) - more careful replacement
+          # DIRECT LINE REPLACEMENT - replace the entire problematic line
+          sed -i.tmp '84s/.*/\t\t\tthrow hscript.Error.ECustom(message);/' source/funkin/backend/scripting/HScript.hx
+          
+          # Fix any other hscript.Error issues in the file
+          sed -i.tmp 's/new hscript\.Error(/hscript.Error.ECustom(/g' source/funkin/backend/scripting/HScript.hx
           sed -i.tmp 's/message\.startsWith(/message != null \&\& message.startsWith(/g' source/funkin/backend/scripting/HScript.hx
           
-          # Fix hscript.Error constructor issues - Error is an enum, not a class
-          # Look for the specific pattern and replace it properly
+          echo "Fixed line 84:"
+          sed -n '84p' source/funkin/backend/scripting/HScript.hx
           
-          # Common patterns for hscript.Error construction:
-          # Pattern 1: new hscript.Error(message, line, column, origin)
-          sed -i.tmp 's/new hscript\.Error(\([^,]*\),\s*\([^,]*\),\s*\([^,]*\),\s*\([^)]*\))/hscript.Error.ECustom(\1)/g' source/funkin/backend/scripting/HScript.hx
-          
-          # Pattern 2: new hscript.Error(message)  
-          sed -i.tmp 's/new hscript\.Error(\([^)]*\))/hscript.Error.ECustom(\1)/g' source/funkin/backend/scripting/HScript.hx
-          
-          # Pattern 3: Any remaining 'new hscript.Error' without parentheses
-          sed -i.tmp 's/new hscript\.Error\b/hscript.Error.ECustom/g' source/funkin/backend/scripting/HScript.hx
-          
-          # Alternative fix: If the above doesn't work, try using ECustom with just the message
-          # or comment out the problematic lines
-          
-          echo "Applied HScript.hx fixes"
-          echo "Checking line 84 after fix:"
-          sed -n '84p' source/funkin/backend/scripting/HScript.hx || echo "Line 84 not found"
-          
-          # Verify the fix worked - if we still see 'new hscript.Error', try alternative approach
-          if grep -q "new hscript\.Error" source/funkin/backend/scripting/HScript.hx; then
-            echo "WARNING: sed replacement may not have worked completely. Trying alternative approach..."
-            
-            # Use a more targeted approach with line-specific replacement
-            # First, find the exact line with the issue
-            line_num=$(grep -n "new hscript\.Error" source/funkin/backend/scripting/HScript.hx | head -1 | cut -d: -f1)
-            if [ -n "$line_num" ]; then
-              echo "Found hscript.Error construction on line $line_num"
-              
-              # Show the problematic line
-              sed -n "${line_num}p" source/funkin/backend/scripting/HScript.hx
-              
-              # Try a different approach - comment out the problematic line and add a fallback
-              sed -i.tmp "${line_num}s/.*/\/\/ &\n\t\t\tthrow \"HScript Error: \" + message;/" source/funkin/backend/scripting/HScript.hx
-              
-              echo "Applied alternative fix - commented out problematic line and added fallback"
-            fi
-          fi
+          echo "HScript.hx fixed"
         fi
         
         # Fix Main.hx mobile compatibility - MUCH MORE CAREFUL approach
