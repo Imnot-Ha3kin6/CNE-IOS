@@ -18,19 +18,10 @@ jobs:
     - name: Select Xcode 15.4
       run: sudo xcode-select --switch /Applications/Xcode_15.4.app
 
-    - name: Symlink make
+    - name: Fix missing make
       run: |
         sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
         sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
-
-    - name: Stub Haxe
-      run: |
-        echo '#!/bin/bash' > fake-haxe.sh
-        echo 'echo "Skipping actual Haxe build..."' >> fake-haxe.sh
-        chmod +x fake-haxe.sh
-        sudo mkdir -p /usr/local/bin
-        sudo mv /usr/local/bin/haxe /usr/local/bin/haxe.bak 2>/dev/null || true
-        sudo cp fake-haxe.sh /usr/local/bin/haxe
 
     - name: Find Xcode Project
       run: |
@@ -40,7 +31,6 @@ jobs:
           ls -la
           exit 1
         fi
-        echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
 
     - name: Archive iOS App
@@ -65,18 +55,16 @@ jobs:
         app_path=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" | head -1)
         if [ -z "$app_path" ]; then
           echo "No .app found in archive"
-          find "$ARCHIVE_PATH" -type f
           exit 1
         fi
         cp -r "$app_path" build/export/Payload/
         cd build/export
-        zip -r CodenameEngine-unsigned.ipa Payload
+        zip -r CodenameEngine.ipa Payload
         cd ../..
-        ls -la build/export/
 
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
-        name: ios-unsigned-ipa
+        name: ios-ipa
         path: build/export/*.ipa
         if-no-files-found: error
