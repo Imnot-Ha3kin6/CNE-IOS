@@ -110,7 +110,7 @@ jobs:
 
         	<android target-sdk-version="34" />
         	<android min-sdk-version="19" />
-        	<ios deployment="11.0" />
+        	<ios deployment="12.0" />
 
         	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
         	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
@@ -139,29 +139,52 @@ jobs:
         echo "=== File Permissions ==="
         ls -la project.xml || echo "project.xml not found"
         
-    - name: Build iOS
+    - name: Configure Xcode for Unsigned Build
+      run: |
+        # Set up a temporary team ID to bypass signing requirement during build
+        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        
+    - name: Build iOS (Unsigned)
       run: |
         if [ -f "project.xml" ]; then
-          echo "Found project.xml, building..."
-          haxelib run lime build project.xml ios -release
+          echo "Found project.xml, building unsigned iOS app..."
+          # Build for device without signing
+          haxelib run lime build project.xml ios -release -nosign
         elif [ -f "Project.xml" ]; then
-          echo "Found Project.xml, building..."
-          haxelib run lime build Project.xml ios -release
+          echo "Found Project.xml, building unsigned iOS app..."
+          haxelib run lime build Project.xml ios -release -nosign
         else
           echo "No project file found!"
           exit 1
         fi
         
-    - name: Upload IPA
+    - name: Create Unsigned IPA
+      run: |
+        echo "Creating unsigned IPA..."
+        cd export/release/ios/build/Release-iphoneos/
+        
+        # Create Payload directory structure
+        mkdir -p Payload
+        
+        # Copy the .app bundle to Payload
+        cp -r *.app Payload/
+        
+        # Create the IPA
+        zip -r CodenameEngine-unsigned.ipa Payload/
+        
+        echo "Unsigned IPA created successfully"
+        ls -la *.ipa
+        
+    - name: Upload Unsigned IPA
       uses: actions/upload-artifact@v4
       with:
-        name: ios-app
-        path: export/ios/build/Release-iphoneos/*.ipa
+        name: ios-unsigned-ipa
+        path: export/release/ios/build/Release-iphoneos/*.ipa
         if-no-files-found: warn
         
-    - name: Upload Simulator App (fallback)
+    - name: Upload App Bundle (fallback)
       uses: actions/upload-artifact@v4
       with:
-        name: ios-simulator-app
-        path: export/ios/build/Release-iphonesimulator/*.app
-        if-no-files-found: ignore
+        name: ios-app-bundle
+        path: export/release/ios/build/Release-iphoneos/*.app
+        if-no-files-found: warn
