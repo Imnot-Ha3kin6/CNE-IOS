@@ -1,7 +1,9 @@
 name: Test Build
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   test-build:
