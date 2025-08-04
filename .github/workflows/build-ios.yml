@@ -199,73 +199,89 @@ jobs:
           # Create backup
           cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
           
-          # Fix String.startsWith issue (add null check) - escape the parentheses properly
-          sed -i.tmp 's/message\.startsWith/(message != null \&\& message.startsWith/g' source/funkin/backend/scripting/HScript.hx
+          # Fix String.startsWith issue (add null check) - more careful replacement
+          sed -i.tmp 's/message\.startsWith(/message != null \&\& message.startsWith(/g' source/funkin/backend/scripting/HScript.hx
           
           # Fix hscript.Error constructor issues
-          sed -i.tmp 's/new hscript\.Error/cast/g' source/funkin/backend/scripting/HScript.hx
+          sed -i.tmp 's/new hscript\.Error(/hscript.Error.ECustom(/g' source/funkin/backend/scripting/HScript.hx
           
           echo "Applied HScript.hx fixes"
         fi
         
-        # Fix Main.hx mobile compatibility
+        # Fix Main.hx mobile compatibility - MUCH MORE CAREFUL approach
         if [ -f "source/funkin/backend/system/Main.hx" ]; then
           echo "Fixing Main.hx mobile compatibility..."
           
           # Create backup
           cp source/funkin/backend/system/Main.hx source/funkin/backend/system/Main.hx.backup
           
-          # Fix FlxG.mouse issue by adding null checks or mobile conditionals
-          sed -i.tmp 's/FlxG\.mouse\./FlxG.mouse != null ? FlxG.mouse. : null; \/\//g' source/funkin/backend/system/Main.hx
+          # Show the problematic line first
+          echo "Checking line 176 before fix:"
+          sed -n '176p' source/funkin/backend/system/Main.hx || echo "Line 176 not found"
           
-          # Alternative: wrap mouse access in mobile checks
-          sed -i.tmp 's/FlxG\.mouse/#if !mobile FlxG.mouse #else null #end/g' source/funkin/backend/system/Main.hx
+          # Instead of blanket replacement, use more targeted fixes
+          # Look for specific patterns that might be problematic
+          
+          # Fix FlxG.mouse access with proper conditional compilation
+          # First, let's see what's actually on line 176
+          echo "Content around line 176:"
+          sed -n '170,180p' source/funkin/backend/system/Main.hx || echo "Lines not found"
+          
+          # Use a more surgical approach - only fix lines that actually have mouse issues
+          # and preserve proper Haxe syntax
+          sed -i.tmp 's/FlxG\.mouse\.visible = false;/#if !mobile FlxG.mouse.visible = false; #end/g' source/funkin/backend/system/Main.hx
+          sed -i.tmp 's/FlxG\.mouse\.visible = true;/#if !mobile FlxG.mouse.visible = true; #end/g' source/funkin/backend/system/Main.hx
+          
+          # Fix any remaining mouse references that aren't assignments
+          sed -i.tmp 's/if (FlxG\.mouse\./if (#if !mobile FlxG.mouse. #else false #end \&\& /g' source/funkin/backend/system/Main.hx
           
           echo "Applied Main.hx mobile fixes"
+          
+          # Verify the fix didn't break syntax
+          echo "Checking line 176 after fix:"
+          sed -n '176p' source/funkin/backend/system/Main.hx || echo "Line 176 not found"
         fi
         
-        # Fix Framerate codenameBuildField issues more carefully
+        # Fix Framerate codenameBuildField issues with better syntax preservation
         echo "Fixing Framerate.codenameBuildField issues..."
         
         # Character Editor fixes
         if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
-          # Look for the exact pattern and replace more carefully
-          sed -i.tmp 's/Framerate\.codenameBuildField;/null; \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
-          sed -i.tmp 's/Framerate\.codenameBuildField)/null) \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
-          sed -i.tmp 's/Framerate\.codenameBuildField,/null, \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
+          cp source/funkin/editors/character/CharacterEditor.hx source/funkin/editors/character/CharacterEditor.hx.backup
+          
+          # More careful replacement that preserves syntax
+          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/character/CharacterEditor.hx
+          
           echo "Fixed CharacterEditor.hx"
         fi
         
-        # Charter fixes - be more specific about the patterns
+        # Charter fixes with syntax preservation
         if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
-          # Create backup first
           cp source/funkin/editors/charter/Charter.hx source/funkin/editors/charter/Charter.hx.backup
           
-          # Replace with proper syntax preservation
-          sed -i.tmp 's/Framerate\.codenameBuildField;/null; \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
-          sed -i.tmp 's/Framerate\.codenameBuildField)/null) \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
-          sed -i.tmp 's/Framerate\.codenameBuildField,/null, \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
-          
-          # Check if we broke anything
-          if ! grep -q "null.*Framerate.codenameBuildField removed" source/funkin/editors/charter/Charter.hx; then
-            echo "Charter.hx replacement may have failed, trying alternative approach..."
-            # Restore backup and try a different approach
-            cp source/funkin/editors/charter/Charter.hx.backup source/funkin/editors/charter/Charter.hx
-            
-            # Just comment out the problematic lines instead of replacing
-            sed -i.tmp 's/.*Framerate\.codenameBuildField.*/\/\/ &/g' source/funkin/editors/charter/Charter.hx
-          fi
+          # Replace with null and preserve syntax
+          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/charter/Charter.hx
           
           echo "Fixed Charter.hx"
         fi
         
-        # Check if FlxSymbolAnimation actually exists (it might be FlxSymbol instead)
-        flxanimate_path=$(haxelib path flxanimate | head -1)
-        if [ -f "${flxanimate_path}flxanimate/animate/FlxSymbol.hx" ]; then
-          echo "Found FlxSymbol - FlxSymbolAnimation might be defined within FlxSymbol.hx"
-        fi
-        
         echo "=== Compatibility fixes applied ==="
+        
+        # Final syntax check - look for obvious syntax errors
+        echo "=== Performing syntax validation ==="
+        if [ -f "source/funkin/backend/system/Main.hx" ]; then
+          echo "Checking for obvious syntax errors in Main.hx:"
+          # Look for double colons, malformed conditionals, etc.
+          if grep -n "::" source/funkin/backend/system/Main.hx; then
+            echo "WARNING: Found double colons - potential syntax error"
+          fi
+          if grep -n "#end.*#if" source/funkin/backend/system/Main.hx; then
+            echo "WARNING: Found malformed conditional compilation"
+          fi
+          if grep -n "null.*:" source/funkin/backend/system/Main.hx; then
+            echo "WARNING: Found potential null syntax issue"
+          fi
+        fi
         
     - name: Configure Xcode for Unsigned Build
       run: |
@@ -302,6 +318,16 @@ jobs:
           echo ""
           echo "=== SEARCHING FOR HAXE ERRORS ==="
           
+          # Look for the specific syntax error
+          if grep -A5 -B5 "Unexpected :" build_output.log; then
+            echo "Found 'Unexpected :' syntax error above"
+          fi
+          
+          # Look for file and line number
+          if grep -E "\.hx:[0-9]+:" build_output.log; then
+            echo "Found Haxe file/line errors above"
+          fi
+          
           # Look for common Haxe error patterns
           if grep -i "error" build_output.log; then
             echo "Found error messages above"
@@ -309,14 +335,6 @@ jobs:
           
           if grep -i "characters.*:" build_output.log; then
             echo "Found Haxe compilation errors above"
-          fi
-          
-          if grep -i "not found" build_output.log; then
-            echo "Found 'not found' errors above"
-          fi
-          
-          if grep -i "missing" build_output.log; then
-            echo "Found 'missing' errors above"
           fi
           
           echo ""
@@ -335,6 +353,20 @@ jobs:
           # Check if it's the HScript issue
           if grep -q "hscript\.Error" build_output.log; then
             echo "hscript.Error constructor issue still present!"
+          fi
+          
+          # Check if it's a mouse/mobile issue
+          if grep -q "FlxG\.mouse" build_output.log; then
+            echo "FlxG.mouse mobile compatibility issue still present!"
+          fi
+          
+          echo ""
+          echo "=== SHOWING PROBLEMATIC FILE CONTENT ==="
+          
+          # If it's Main.hx line 176, show that area
+          if grep -q "Main\.hx:176" build_output.log; then
+            echo "Content around Main.hx line 176:"
+            sed -n '170,180p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Could not read Main.hx"
           fi
           
           exit 1
