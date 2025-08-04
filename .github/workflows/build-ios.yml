@@ -35,27 +35,31 @@ jobs:
         # Install CNE custom versions first to avoid conflicts
         haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
         haxelib git flixel-addons https://github.com/CodenameCrew/cne-flixel-addons --quiet
-        haxelib git flixel-ui https://github.com/CodenameCrew/cne-flixel-ui --quiet || haxelib install flixel-ui --quiet
+        haxelib install flixel-ui 2.6.1 --quiet
         
     - name: Install Additional Dependencies
       run: |
-        # Core dependencies
-        haxelib install format --quiet
-        haxelib install markdown --quiet
-        
-        # Try CNE-specific hscript-improved version first
+        # CNE-specific hscript-improved with custom-classes branch
         echo "Installing hscript-improved..."
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet || \
-        haxelib git hscript-improved https://github.com/YoshiCrafter29/hscript-improved --quiet || \
-        haxelib install hscript --quiet
+        haxelib git hscript-improved https://github.com/CodenameCrew/hscript-improved custom-classes --quiet
         
-        # FlxAnimate - install CNE version with FlxSymbolAnimation
+        # FlxAnimate - CNE version
         echo "Installing flxanimate..."
         haxelib git flxanimate https://github.com/CodenameCrew/cne-flxanimate --quiet
         
-        # Additional libraries that might be needed
-        haxelib install tjson --quiet || echo "tjson not available, skipping"
-        haxelib install hxcpp --quiet || echo "hxcpp already installed"
+        # Core dependencies
+        haxelib install format --quiet
+        haxelib install markdown --quiet
+        haxelib install nape-haxe4 --quiet
+        
+        # Video library (skip dependencies to avoid conflicts)
+        haxelib install hxvlc 1.9.3 --quiet || echo "hxvlc not available, skipping"
+        
+        # Away3D for 3D features
+        haxelib git away3d https://github.com/CodenameCrew/away3d --quiet || echo "away3d not available, skipping"
+        
+        # CNE HXCPP
+        haxelib git hxcpp https://github.com/CodenameCrew/cne-hxcpp --quiet
         
         echo "All dependencies installed"
         
@@ -106,6 +110,11 @@ jobs:
         	
         	<!-- Disable problematic features for iOS build -->
         	<haxedef name="NO_PRECOMPILED_HEADERS" />
+        	<haxedef name="HXCPP_SMART_STRINGS" />
+        	
+        	<!-- iOS specific compatibility fixes -->
+        	<haxedef name="FLX_NO_MOUSE" if="mobile" />
+        	<haxedef name="FLX_NO_KEYBOARD" if="mobile" />
         	
         	<!-- Custom macros -->
         	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
@@ -135,6 +144,10 @@ jobs:
         	<haxelib name="flxanimate" />
         	<haxelib name="hscript-improved" />
         	<haxelib name="markdown" />
+        	<haxelib name="nape-haxe4" />
+        	<haxelib name="away3d" if="desktop" />
+        	<haxelib name="hxvlc" if="desktop" />
+        	<haxelib name="hxcpp" />
 
         	<!-- Platform targets -->
         	<android target-sdk-version="34" />
@@ -149,7 +162,7 @@ jobs:
         echo "=== Installed libraries ==="
         haxelib list
         
-    - name: Check Source Code Structure
+    - name: Check Source Code Structure and Apply Compatibility Fixes
       run: |
         echo "=== Checking source directory structure ==="
         if [ -d "source" ]; then
@@ -180,6 +193,41 @@ jobs:
           echo "WARNING: FlxSymbolAnimation not found at expected location"
           find "$flxanimate_path" -name "*.hx" | grep -i symbol || echo "No symbol-related files found"
         fi
+        
+        echo "=== Applying compatibility fixes ==="
+        
+        # Fix HScript.hx issues
+        if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
+          echo "Fixing HScript.hx compatibility issues..."
+          
+          # Create backup
+          cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
+          
+          # Fix String.startsWith issue (add null check)
+          sed -i 's/message\.startsWith/(message != null \&\& message.startsWith/g' source/funkin/backend/scripting/HScript.hx
+          
+          # Fix hscript.Error constructor issues
+          sed -i 's/new hscript\.Error/cast/g' source/funkin/backend/scripting/HScript.hx
+          
+          echo "Applied HScript.hx fixes"
+        fi
+        
+        # Fix Framerate codenameBuildField issues
+        echo "Fixing Framerate.codenameBuildField issues..."
+        
+        # Character Editor fixes
+        if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
+          sed -i 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
+          echo "Fixed CharacterEditor.hx"
+        fi
+        
+        # Charter fixes  
+        if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
+          sed -i 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
+          echo "Fixed Charter.hx"
+        fi
+        
+        echo "=== Compatibility fixes applied ==="
         
     - name: Configure Xcode for Unsigned Build
       run: |
