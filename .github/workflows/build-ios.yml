@@ -47,52 +47,57 @@ jobs:
         echo "Building project: $project_name"
         
         # List all available targets and schemes
-        echo "Available targets:"
+        echo "Available targets and schemes:"
         xcodebuild -project "$XCODEPROJ_PATH" -list
         
-        mkdir -p build/archives
-        archive_path="build/archives/${project_name}.xcarchive"
-        
-        # Try to find the main app target (not the Haxe build target)
-        main_target=""
-        targets=$(xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 20 "Targets:" | grep -v "Targets:" | grep -v "Build Configurations:" | head -10)
-        
-        echo "Found targets: $targets"
-        
-        # Look for the main app target (usually the project name)
-        for target in $targets; do
-          if [[ "$target" != "Build Haxe" && "$target" != "BuildHaxe" ]]; then
-            main_target="$target"
-            echo "Selected main target: $main_target"
-            break
-          fi
-        done
-        
-        if [ -z "$main_target" ]; then
-          echo "No suitable target found, using project name as target"
-          main_target="$project_name"
-        fi
-        
-        # Build only the main target, explicitly excluding Build Haxe
-        xcodebuild archive \
+        # First, try to build just the CodenameEngine target without archiving
+        echo "Building CodenameEngine target..."
+        xcodebuild build \
           -project "$XCODEPROJ_PATH" \
-          -target "$main_target" \
+          -target "CodenameEngine" \
           -configuration Release \
           -destination "generic/platform=iOS" \
-          -archivePath "$archive_path" \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
           DEVELOPMENT_TEAM="" \
+          ARCHS="arm64" \
+          VALID_ARCHS="arm64" \
           -allowProvisioningUpdates
         
-        echo "ARCHIVE_PATH=$archive_path" >> $GITHUB_ENV
+        # Find the built app
+        built_app=$(find . -name "CodenameEngine.app" -o -name "*.app" | head -1)
         
-        if [ -d "$archive_path" ]; then
+        if [ -n "$built_app" ]; then
+          echo "Found built app: $built_app"
+          
+          # Create archive structure manually
+          mkdir -p build/archives/CodenameEngine.xcarchive/Products/Applications
+          cp -r "$built_app" build/archives/CodenameEngine.xcarchive/Products/Applications/
+          
+          # Create minimal Info.plist for archive
+          cat > build/archives/CodenameEngine.xcarchive/Info.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>ArchiveVersion</key>
+    <integer>2</integer>
+    <key>CreationDate</key>
+    <date>$(date -u +%Y-%m-%dT%H:%M:%SZ)</date>
+    <key>Name</key>
+    <string>CodenameEngine</string>
+    <key>SchemeName</key>
+    <string>CodenameEngine</string>
+</dict>
+</plist>
+EOF
+          
+          echo "ARCHIVE_PATH=build/archives/CodenameEngine.xcarchive" >> $GITHUB_ENV
           echo "Archive created successfully"
-          find "$archive_path" -name "*.app"
         else
-          echo "Archive creation failed"
+          echo "No built app found. Looking for build products..."
+          find . -name "*.app" -o -name "build" -type d
           exit 1
         fi
         
