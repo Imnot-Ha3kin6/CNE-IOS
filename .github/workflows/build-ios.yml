@@ -162,7 +162,8 @@ jobs:
           
           # Create minimal Main.hx if it doesn't exist
           if [ ! -f "source/funkin/backend/system/Main.hx" ]; then
-            cat > source/funkin/backend/system/Main.hx << 'EOF'
+            echo "Creating minimal Main.hx..."
+            cat > source/funkin/backend/system/Main.hx << 'HAXE_CODE'
 package funkin.backend.system;
 
 import flixel.FlxG;
@@ -173,10 +174,6 @@ class Main extends Sprite {
     public function new() {
         super();
         addChild(new FlxGame(1280, 720, PlayState, 60, 60, true));
-        
-        #if !mobile
-        FlxG.mouse.visible = false;
-        #end
     }
 }
 
@@ -186,7 +183,7 @@ class PlayState extends flixel.FlxState {
         trace("Hello from Codename Engine!");
     }
 }
-EOF
+HAXE_CODE
             echo "Created minimal Main.hx"
           fi
         else
