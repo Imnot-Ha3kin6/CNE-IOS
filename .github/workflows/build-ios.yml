@@ -1,41 +1,56 @@
-name: Test Build
+name: Build iOS App
 
 on:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:  # Manual trigger
 
 jobs:
-  test-build:
+  build-ios:
     runs-on: macos-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Test System
-      run: |
-        echo "System info:"
-        uname -a
-        xcode-select --print-path
-        ls -la
-        
     - name: Setup Haxe
       run: |
         brew install haxe
         
-    - name: Test Haxe
+    - name: Setup Haxelib
       run: |
-        haxe --version
-        echo "Haxe working!"
+        haxelib setup /usr/local/lib/haxe/lib
         
-    - name: Install Basic Libraries
+    - name: Install Haxe dependencies
       run: |
         haxelib install lime
-        echo "Lime installed!"
+        haxelib install openfl
+        haxelib install flixel
+        haxelib install flixel-ui
+        haxelib install flixel-addons
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
+        haxelib run lime setup -y
         
-    - name: Simple Build Test
+    - name: Setup iOS
       run: |
-        echo "Testing basic project structure..."
-        ls -la source/ || echo "No source folder found"
-        cat Project.xml | head -10 || echo "No Project.xml found"
+        haxelib run lime setup ios -y
+        
+    - name: Build iOS
+      run: |
+        haxelib run lime build ios -release
+        
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-app
+        path: export/ios/build/Release-iphoneos/*.ipa
+        if-no-files-found: warn
+        
+    - name: Upload Simulator App (fallback)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-simulator-app
+        path: export/ios/build/Release-iphonesimulator/*.app
+        if-no-files-found: ignore
