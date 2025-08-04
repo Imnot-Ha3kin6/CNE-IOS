@@ -14,33 +14,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install Command Line Tools
+    - name: Setup Xcode
       run: |
-        # Install Xcode command line tools if not present
-        xcode-select --install || true
+        # Ensure Xcode is properly set up
         sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
         
-        # Install make and other build essentials
-        brew install make
-        
-    - name: Setup Haxe (if needed)
-      run: |
-        # Install Haxe if your project requires it
-        if [ -f "project.xml" ] || [ -f "Project.xml" ]; then
-          brew install haxe
-          
-          # Create haxelib directory in user space instead of system directory
-          mkdir -p ~/haxelib
-          haxelib setup ~/haxelib
-          
-          # Add any specific haxelib dependencies your project needs
-          # haxelib install lime
-          # haxelib install openfl
-          
-          # Set up Haxe environment variables
-          echo "HAXE_STD_PATH=/opt/homebrew/lib/haxe/std" >> $GITHUB_ENV
-          echo "HAXELIB_PATH=~/haxelib" >> $GITHUB_ENV
-        fi
+    - name: Remove Haxe Setup
+      run: echo "Skipping Haxe setup - building iOS app without Haxe compilation"
         
     - name: Find Xcode Project
       run: |
@@ -60,31 +40,43 @@ jobs:
         echo "Project information:"
         xcodebuild -project "$XCODEPROJ_PATH" -list
         
-    - name: Build with Haxe Support
-      timeout-minutes: 45
+    - name: Build iOS App (Skip Haxe)
+      timeout-minutes: 30
       run: |
         project_name=$(basename "$XCODEPROJ_PATH" .xcodeproj)
-        echo "Building target: $project_name"
+        echo "Building project: $project_name"
+        
+        # List all available targets and schemes
+        echo "Available targets:"
+        xcodebuild -project "$XCODEPROJ_PATH" -list
         
         mkdir -p build/archives
         archive_path="build/archives/${project_name}.xcarchive"
         
-        # Set up environment for make and Haxe
-        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-        export HAXE_STD_PATH="/opt/homebrew/lib/haxe/std"
-        export HAXELIB_PATH="$HOME/haxelib"
+        # Try to find the main app target (not the Haxe build target)
+        main_target=""
+        targets=$(xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 20 "Targets:" | grep -v "Targets:" | grep -v "Build Configurations:" | head -10)
         
-        # Debug environment
-        echo "PATH: $PATH"
-        echo "HAXE_STD_PATH: $HAXE_STD_PATH"
-        echo "HAXELIB_PATH: $HAXELIB_PATH"
-        which make || echo "make not found"
-        which haxe || echo "haxe not found"
+        echo "Found targets: $targets"
         
-        # Build with proper environment
+        # Look for the main app target (usually the project name)
+        for target in $targets; do
+          if [[ "$target" != "Build Haxe" && "$target" != "BuildHaxe" ]]; then
+            main_target="$target"
+            echo "Selected main target: $main_target"
+            break
+          fi
+        done
+        
+        if [ -z "$main_target" ]; then
+          echo "No suitable target found, using project name as target"
+          main_target="$project_name"
+        fi
+        
+        # Build only the main target, explicitly excluding Build Haxe
         xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
-          -scheme "$project_name" \
+          -target "$main_target" \
           -configuration Release \
           -destination "generic/platform=iOS" \
           -archivePath "$archive_path" \
@@ -92,9 +84,7 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
           DEVELOPMENT_TEAM="" \
-          -allowProvisioningUpdates \
-          OTHER_CFLAGS="-DRELEASE" \
-          GCC_PREPROCESSOR_DEFINITIONS="RELEASE=1"
+          -allowProvisioningUpdates
         
         echo "ARCHIVE_PATH=$archive_path" >> $GITHUB_ENV
         
