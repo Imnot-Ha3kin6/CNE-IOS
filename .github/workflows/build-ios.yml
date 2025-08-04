@@ -38,6 +38,19 @@ jobs:
       run: |
         haxelib run lime setup ios -y
         
+    - name: Create Project.xml
+      run: |
+        echo "Using existing project.xml file"
+        ls -la *.xml
+        
+    - name: Install Additional Libraries
+      run: |
+        haxelib install format
+        haxelib install flxanimate
+        haxelib install markdown
+        haxelib install extension-androidtools
+        echo "Additional libraries installed"
+        
     - name: Debug Project Files
       run: |
         echo "=== Current Directory ==="
@@ -53,11 +66,14 @@ jobs:
         
     - name: Build iOS
       run: |
-        if [ -f "Project.xml" ]; then
-          echo "Project.xml exists, building..."
-          haxelib run lime build ios -release
+        if [ -f "project.xml" ]; then
+          echo "Found project.xml, building..."
+          haxelib run lime build project.xml ios -release
+        elif [ -f "Project.xml" ]; then
+          echo "Found Project.xml, building..."
+          haxelib run lime build Project.xml ios -release
         else
-          echo "Project.xml still not found!"
+          echo "No project file found!"
           exit 1
         fi
         
