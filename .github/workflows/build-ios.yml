@@ -16,14 +16,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 2. Select correct Xcode and fix missing make
-    - name: Set up Xcode and fix make
-      run: |
-        sudo xcode-select --switch /Applications/Xcode_15.4.app
-        sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
-        sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
+    # 2. Select correct Xcode version
+    - name: Select Xcode 15.4
+      run: sudo xcode-select --switch /Applications/Xcode_15.4.app
 
-    # 3. Locate Xcode project
+    # 3. Find Xcode project
     - name: Find Xcode Project
       run: |
         xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
@@ -35,9 +32,10 @@ jobs:
         echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
 
-    # 4. Archive the app
+    # 4. Archive the app (force /usr/bin/make)
     - name: Archive iOS App
       run: |
+        PATH="/usr/bin:$PATH" \
         xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
           -scheme "CodenameEngine" \
