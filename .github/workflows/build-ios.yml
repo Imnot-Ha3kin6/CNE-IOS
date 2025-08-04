@@ -188,7 +188,7 @@ jobs:
           
           # Add StringTools import if not present
           if ! grep -q "using StringTools" source/funkin/backend/scripting/HScript.hx; then
-            sed -i '' '1i\
+            sed -i '' '1i\\
 using StringTools;' source/funkin/backend/scripting/HScript.hx
           fi
           
@@ -248,7 +248,7 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
             echo "WARNING: FlxSymbolAnimation not found in flxanimate library"
             echo "Creating compatibility stub..."
             mkdir -p source/flxanimate/animate
-            cat > source/flxanimate/animate/FlxSymbolAnimation.hx << 'EOF'
+            cat > source/flxanimate/animate/FlxSymbolAnimation.hx << 'HAXE_EOF'
 package flxanimate.animate;
 
 // Compatibility stub for FlxSymbolAnimation
@@ -257,14 +257,14 @@ class FlxSymbolAnimation {
         // Stub implementation
     }
 }
-EOF
+HAXE_EOF
             echo "Created FlxSymbolAnimation compatibility stub"
           fi
         fi
         
         # Add mobile-specific conditional compilation
         echo "Adding mobile conditional compilation fixes..."
-        find source -name "*.hx" -exec sed -i '' 's/#if desktop/#if (desktop \&\& !mobile)/g' {} \;
+        find source -name "*.hx" -exec sed -i '' 's/#if desktop/#if (desktop \&\& !mobile)/g' {} + 2>/dev/null || true
         
         echo "=== All compatibility fixes applied ==="
         
@@ -291,7 +291,7 @@ EOF
           fi
         fi
         
-        if [ $error_count -gt 0 ]; then
+        if [ "$error_count" -gt 0 ]; then
           echo "Found $error_count syntax errors - please review"
           exit 1
         fi
