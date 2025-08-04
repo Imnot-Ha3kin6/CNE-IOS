@@ -15,265 +15,82 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install Build Tools
-      run: |
-        echo "Installing required build tools..."
-        
-        # Install Xcode command line tools if not already installed
-        if ! xcode-select -p >/dev/null 2>&1; then
-          echo "Installing Xcode command line tools..."
-          xcode-select --install
-          sleep 30
-        fi
-        
-        # Find make and create symlink to where Xcode expects it
-        echo "Setting up make for Xcode..."
-        sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
-        
-        if [ -f "/usr/bin/make" ]; then
-          echo "Using system make from /usr/bin/make"
-          sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
-        else
-          echo "Installing make via homebrew..."
-          brew install make
-          sudo ln -sf /opt/homebrew/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
-        fi
-        
-        # Verify setup
-        ls -la /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
-        /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make --version
-      
     - name: Find Xcode Project
       run: |
-        echo "Looking for Xcode project..."
         xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
         
         if [ -z "$xcodeproj_path" ]; then
           echo "ERROR: No .xcodeproj folder found!"
-          echo "Available files and directories:"
           ls -la
           exit 1
         fi
         
-        echo "Found Xcode project at: $xcodeproj_path"
+        echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
-        
-        echo "Xcode project contents:"
-        ls -la "$xcodeproj_path"
-        
-        if [ -f "$xcodeproj_path/project.pbxproj" ]; then
-          echo "Found project.pbxproj file ✓"
-        else
-          echo "ERROR: project.pbxproj not found in $xcodeproj_path"
-          exit 1
-        fi
-        
-        echo "Extracting available schemes..."
-        xcodebuild -project "$xcodeproj_path" -list 2>/dev/null || echo "Could not list schemes"
 
-    - name: Build iOS Archive
+    - name: List Project Info
+      run: |
+        echo "Project information:"
+        xcodebuild -project "$XCODEPROJ_PATH" -list
+
+    - name: Build Main Target Only
       timeout-minutes: 30
       run: |
-        echo "Building iOS archive from Xcode project..."
-        echo "Build started at: $(date)"
-        
         project_name=$(basename "$XCODEPROJ_PATH" .xcodeproj)
-        echo "Project name: $project_name"
+        echo "Building target: $project_name"
         
         mkdir -p build/archives
         archive_path="build/archives/${project_name}.xcarchive"
         
-        echo "Getting available schemes..."
-        list_output=$(xcodebuild -project "$XCODEPROJ_PATH" -list 2>/dev/null)
-        echo "Full list output:"
-        echo "$list_output"
-        
-        schemes=$(echo "$list_output" | sed -n '/Schemes:/,/^$/p' | grep -v "Schemes:" | grep -v "^$" | sed 's/^[[:space:]]*//' | grep -v "Build Configurations" | grep -v "If no build configuration")
-        echo "Extracted schemes: $schemes"
-        
-        if echo "$schemes" | grep -q "^$project_name$"; then
-          scheme_name="$project_name"
-          echo "Using project name scheme: $scheme_name"
-        elif [ -n "$schemes" ]; then
-          scheme_name=$(echo "$schemes" | grep -v "^Build$" | head -1 | xargs)
-          if [ -z "$scheme_name" ]; then
-            scheme_name=$(echo "$schemes" | head -1 | xargs)
-          fi
-          echo "Using first available scheme: $scheme_name"
-        else
-          scheme_name="$project_name"
-          echo "No schemes found, using project name as scheme: $scheme_name"
-        fi
-        
-        echo "Running xcodebuild archive..."
-        echo "Using project: $XCODEPROJ_PATH"
-        echo "Using scheme: $scheme_name"
-        
-        # Verify the scheme exists before building
-        if ! xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 100 "Schemes:" | grep -q "^[[:space:]]*$scheme_name[[:space:]]*$"; then
-          echo "ERROR: Scheme '$scheme_name' not found in project"
-          echo "Available schemes:"
-          xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 100 "Schemes:"
-          exit 1
-        fi
-        
-        # Build the archive
-        set +e
+        # Build only the main target, skip Build Haxe
         xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
-          -scheme "$scheme_name" \
+          -scheme "$project_name" \
           -configuration Release \
           -destination "generic/platform=iOS" \
           -archivePath "$archive_path" \
-          -skipUnavailableActions \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
           DEVELOPMENT_TEAM="" \
-          -allowProvisioningUpdates \
-          2>&1 | tee build_output.log
+          -skipUnavailableActions \
+          -allowProvisioningUpdates
         
-        build_result=$?
-        set -e
-        
-        if [ $build_result -ne 0 ]; then
-          echo "Archive build failed at: $(date)"
-          echo ""
-          echo "=== BUILD FAILURE ANALYSIS ==="
-          echo "Last 100 lines of build output:"
-          tail -100 build_output.log
-          
-          echo ""
-          echo "=== CHECKING FOR COMMON XCODE ISSUES ==="
-          
-          if grep -q "Could not find scheme\|does not contain a scheme" build_output.log; then
-            echo "❌ Scheme not found issue detected"
-            echo "Available schemes in project:"
-            xcodebuild -project "$XCODEPROJ_PATH" -list || echo "Could not list schemes"
-          fi
-          
-          if grep -q "Code signing is required" build_output.log; then
-            echo "❌ Code signing issue detected"
-          fi
-          
-          if grep -q "No such file or directory" build_output.log; then
-            echo "❌ Missing file issue detected"
-            if grep -q "unable to spawn process.*make" build_output.log; then
-              echo "❌ Make command not found - checking installation..."
-              which make || echo "Make is not available in the system PATH"
-              ls -la /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Make not found at Xcode location"
-            fi
-          fi
-          
-          if grep -q "Build input file cannot be found" build_output.log; then
-            echo "❌ Missing build input file detected"
-          fi
-          
-          if grep -q "error:" build_output.log; then
-            echo "❌ Compilation errors found:"
-            grep "error:" build_output.log | tail -10
-          fi
-          
-          exit 1
-        fi
-        
-        echo "Archive created successfully at: $archive_path"
         echo "ARCHIVE_PATH=$archive_path" >> $GITHUB_ENV
         
         if [ -d "$archive_path" ]; then
-          echo "✓ Archive verification successful"
-          echo "Archive contents:"
-          find "$archive_path" -name "*.app" | head -5
+          echo "Archive created successfully"
+          find "$archive_path" -name "*.app"
         else
-          echo "ERROR: Archive was not created"
+          echo "Archive creation failed"
           exit 1
         fi
-        
-        echo "Archive build completed at: $(date)"
 
-    - name: Create Unsigned IPA
+    - name: Create IPA
       run: |
-        echo "Creating unsigned IPA from archive..."
-        
-        if [ ! -d "$ARCHIVE_PATH" ]; then
-          echo "ERROR: Archive not found at $ARCHIVE_PATH"
-          exit 1
-        fi
-        
         mkdir -p build/export
         
-        cat > build/export/ExportOptions.plist << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>compileBitcode</key>
-            <false/>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>stripSwiftSymbols</key>
-            <false/>
-        </dict>
-        </plist>
-        EOF
+        app_path=$(find "$ARCHIVE_PATH" -name "*.app" | head -1)
         
-        echo "Created ExportOptions.plist"
-        
-        set +e
-        xcodebuild -exportArchive \
-          -archivePath "$ARCHIVE_PATH" \
-          -exportPath build/export \
-          -exportOptionsPlist build/export/ExportOptions.plist \
-          2>&1 | tee export_output.log
-        
-        export_result=$?
-        set -e
-        
-        if [ $export_result -ne 0 ]; then
-          echo "IPA export failed"
-          echo "Export output:"
-          cat export_output.log
-          
-          echo ""
-          echo "Trying alternative manual IPA creation..."
-          
-          app_path=$(find "$ARCHIVE_PATH" -name "*.app" | head -1)
-          if [ -n "$app_path" ]; then
-            echo "Found app at: $app_path"
-            
-            mkdir -p build/export/Payload
-            
-            cp -r "$app_path" build/export/Payload/
-            
-            cd build/export
-            zip -r CodenameEngine-unsigned.ipa Payload/
-            cd ../..
-            
-            echo "Manual IPA created successfully"
-          else
-            echo "ERROR: No .app found in archive"
-            find "$ARCHIVE_PATH" -type d -name "*.app" || echo "No .app directories found"
-            exit 1
-          fi
-        else
-          echo "IPA export completed successfully"
+        if [ -z "$app_path" ]; then
+          echo "No .app found in archive"
+          exit 1
         fi
         
-        echo "Looking for IPA files..."
-        find build/export -name "*.ipa" | head -5
+        echo "Found app: $app_path"
+        
+        mkdir -p build/export/Payload
+        cp -r "$app_path" build/export/Payload/
+        
+        cd build/export
+        zip -r CodenameEngine-unsigned.ipa Payload/
+        cd ../..
+        
+        echo "IPA created successfully"
 
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: ios-unsigned-ipa
         path: build/export/*.ipa
-        if-no-files-found: warn
-        
-    - name: Upload App Bundle (fallback)
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-app-bundle
-        path: build/export/Payload/*.app
-        if-no-files-found: warn
+        if-no-files-found: error
