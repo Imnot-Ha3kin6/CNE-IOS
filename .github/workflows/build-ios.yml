@@ -50,7 +50,19 @@ jobs:
         echo "Available targets and schemes:"
         xcodebuild -project "$XCODEPROJ_PATH" -list
         
-        # First, try to build just the CodenameEngine target without archiving
+        # Option 1: Try to build only the Build Haxe target first (as a stub)
+        echo "Attempting to build Build Haxe target first..."
+        xcodebuild build \
+          -project "$XCODEPROJ_PATH" \
+          -target "Build Haxe" \
+          -configuration Release \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          DEVELOPMENT_TEAM="" \
+          DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES || echo "Build Haxe target failed, continuing..."
+        
+        # Now build the main CodenameEngine target
         echo "Building CodenameEngine target..."
         xcodebuild build \
           -project "$XCODEPROJ_PATH" \
@@ -63,6 +75,7 @@ jobs:
           DEVELOPMENT_TEAM="" \
           ARCHS="arm64" \
           VALID_ARCHS="arm64" \
+          DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES \
           -allowProvisioningUpdates
         
         # Find the built app
