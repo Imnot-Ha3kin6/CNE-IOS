@@ -36,7 +36,7 @@ jobs:
         
     - name: Build iOS
       run: |
-        haxelib run lime build ios -release
+        haxelib run lime build ios -release -simulator
         
     - name: Upload IPA
       uses: actions/upload-artifact@v4
