@@ -56,18 +56,43 @@ jobs:
         archive_path="build/archives/${project_name}.xcarchive"
         
         echo "Getting available schemes..."
-        schemes=$(xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 100 "Schemes:" | tail -n +2 | head -20 | xargs)
-        echo "Available schemes: $schemes"
+        # Get the complete list output first
+        list_output=$(xcodebuild -project "$XCODEPROJ_PATH" -list 2>/dev/null)
+        echo "Full list output:"
+        echo "$list_output"
         
-        if [ -n "$schemes" ]; then
-          scheme_name=$(echo $schemes | awk '{print $1}')
-          echo "Using scheme: $scheme_name"
+        # Extract schemes more carefully
+        schemes=$(echo "$list_output" | sed -n '/Schemes:/,/^$/p' | grep -v "Schemes:" | grep -v "^$" | sed 's/^[[:space:]]*//' | grep -v "Build Configurations" | grep -v "If no build configuration")
+        echo "Extracted schemes: $schemes"
+        
+        # Try to find a scheme that matches the project name first
+        if echo "$schemes" | grep -q "^$project_name$"; then
+          scheme_name="$project_name"
+          echo "Using project name scheme: $scheme_name"
+        elif [ -n "$schemes" ]; then
+          # Get the first scheme that's not "Build" (which seems to be a build phase, not a scheme)
+          scheme_name=$(echo "$schemes" | grep -v "^Build$" | head -1 | xargs)
+          if [ -z "$scheme_name" ]; then
+            scheme_name=$(echo "$schemes" | head -1 | xargs)
+          fi
+          echo "Using first available scheme: $scheme_name"
         else
           scheme_name="$project_name"
-          echo "Using project name as scheme: $scheme_name"
+          echo "No schemes found, using project name as scheme: $scheme_name"
         fi
         
         echo "Running xcodebuild archive..."
+        echo "Using project: $XCODEPROJ_PATH"
+        echo "Using scheme: $scheme_name"
+        
+        # Verify the scheme exists before building
+        if ! xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 100 "Schemes:" | grep -q "^[[:space:]]*$scheme_name[[:space:]]*$"; then
+          echo "ERROR: Scheme '$scheme_name' not found in project"
+          echo "Available schemes:"
+          xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 100 "Schemes:"
+          exit 1
+        fi
+        
         if ! xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
           -scheme "$scheme_name" \
@@ -91,7 +116,7 @@ jobs:
           echo ""
           echo "=== CHECKING FOR COMMON XCODE ISSUES ==="
           
-          if grep -q "Could not find scheme" build_output.log; then
+          if grep -q "Could not find scheme\|does not contain a scheme" build_output.log; then
             echo "❌ Scheme not found issue detected"
             echo "Available schemes in project:"
             xcodebuild -project "$XCODEPROJ_PATH" -list || echo "Could not list schemes"
@@ -115,6 +140,7 @@ jobs:
           fi
           
           exit 1
+        fi
         fi
         
         echo "Archive created successfully at: $archive_path"
