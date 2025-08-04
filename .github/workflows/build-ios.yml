@@ -1,4 +1,137 @@
-- name: Create Unsigned IPA from Archive
+name: Build iOS App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Find Xcode Project
+      run: |
+        echo "Looking for Xcode project..."
+        xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
+        
+        if [ -z "$xcodeproj_path" ]; then
+          echo "ERROR: No .xcodeproj folder found!"
+          echo "Available files and directories:"
+          ls -la
+          exit 1
+        fi
+        
+        echo "Found Xcode project at: $xcodeproj_path"
+        echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
+        
+        echo "Xcode project contents:"
+        ls -la "$xcodeproj_path"
+        
+        if [ -f "$xcodeproj_path/project.pbxproj" ]; then
+          echo "Found project.pbxproj file ✓"
+        else
+          echo "ERROR: project.pbxproj not found in $xcodeproj_path"
+          exit 1
+        fi
+        
+        echo "Extracting available schemes..."
+        xcodebuild -project "$xcodeproj_path" -list 2>/dev/null || echo "Could not list schemes"
+
+    - name: Build iOS Archive
+      timeout-minutes: 30
+      run: |
+        echo "Building iOS archive from Xcode project..."
+        echo "Build started at: $(date)"
+        
+        project_name=$(basename "$XCODEPROJ_PATH" .xcodeproj)
+        echo "Project name: $project_name"
+        
+        mkdir -p build/archives
+        archive_path="build/archives/${project_name}.xcarchive"
+        
+        echo "Getting available schemes..."
+        schemes=$(xcodebuild -project "$XCODEPROJ_PATH" -list | grep -A 100 "Schemes:" | tail -n +2 | head -20 | xargs)
+        echo "Available schemes: $schemes"
+        
+        if [ -n "$schemes" ]; then
+          scheme_name=$(echo $schemes | awk '{print $1}')
+          echo "Using scheme: $scheme_name"
+        else
+          scheme_name="$project_name"
+          echo "Using project name as scheme: $scheme_name"
+        fi
+        
+        echo "Running xcodebuild archive..."
+        if ! xcodebuild archive \
+          -project "$XCODEPROJ_PATH" \
+          -scheme "$scheme_name" \
+          -configuration Release \
+          -destination "generic/platform=iOS" \
+          -archivePath "$archive_path" \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          DEVELOPMENT_TEAM="" \
+          -allowProvisioningUpdates \
+          -quiet \
+          2>&1 | tee build_output.log; then
+          
+          echo "Archive build failed at: $(date)"
+          echo ""
+          echo "=== BUILD FAILURE ANALYSIS ==="
+          echo "Last 100 lines of build output:"
+          tail -100 build_output.log
+          
+          echo ""
+          echo "=== CHECKING FOR COMMON XCODE ISSUES ==="
+          
+          if grep -q "Could not find scheme" build_output.log; then
+            echo "❌ Scheme not found issue detected"
+            echo "Available schemes in project:"
+            xcodebuild -project "$XCODEPROJ_PATH" -list || echo "Could not list schemes"
+          fi
+          
+          if grep -q "Code signing is required" build_output.log; then
+            echo "❌ Code signing issue detected"
+          fi
+          
+          if grep -q "No such file or directory" build_output.log; then
+            echo "❌ Missing file issue detected"
+          fi
+          
+          if grep -q "Build input file cannot be found" build_output.log; then
+            echo "❌ Missing build input file detected"
+          fi
+          
+          if grep -q "error:" build_output.log; then
+            echo "❌ Compilation errors found:"
+            grep "error:" build_output.log | tail -10
+          fi
+          
+          exit 1
+        fi
+        
+        echo "Archive created successfully at: $archive_path"
+        echo "ARCHIVE_PATH=$archive_path" >> $GITHUB_ENV
+        
+        if [ -d "$archive_path" ]; then
+          echo "✓ Archive verification successful"
+          echo "Archive contents:"
+          find "$archive_path" -name "*.app" | head -5
+        else
+          echo "ERROR: Archive was not created"
+          exit 1
+        fi
+        
+        echo "Archive build completed at: $(date)"
+
+    - name: Create Unsigned IPA
       run: |
         echo "Creating unsigned IPA from archive..."
         
@@ -7,11 +140,9 @@
           exit 1
         fi
         
-        # Create export directory
         mkdir -p build/export
         
-        # Create export options plist for unsigned build
-        cat > build/export/ExportOptions.plist << EOF
+        cat > build/export/ExportOptions.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -30,7 +161,6 @@ EOF
         
         echo "Created ExportOptions.plist"
         
-        # Export IPA from archive
         if ! xcodebuild -exportArchive \
           -archivePath "$ARCHIVE_PATH" \
           -exportPath build/export \
@@ -44,18 +174,14 @@ EOF
           echo ""
           echo "Trying alternative manual IPA creation..."
           
-          # Manual IPA creation as fallback
           app_path=$(find "$ARCHIVE_PATH" -name "*.app" | head -1)
           if [ -n "$app_path" ]; then
             echo "Found app at: $app_path"
             
-            # Create Payload directory
             mkdir -p build/export/Payload
             
-            # Copy app to Payload
             cp -r "$app_path" build/export/Payload/
             
-            # Create IPA
             cd build/export
             zip -r CodenameEngine-unsigned.ipa Payload/
             cd ../..
@@ -63,408 +189,26 @@ EOF
             echo "Manual IPA created successfully"
           else
             echo "ERROR: No .app found in archive"
-            find "$ARCHIVE_PATH" -type d -name "*.app" || echo "No .app directoriesname: Build iOS App
-
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
-
-jobs:
-  build-ios:
-    runs-on: macos-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Haxe
-      run: |
-        brew install haxe
-        
-    - name: Setup Haxelib
-      run: |
-        mkdir -p ~/haxelib
-        haxelib setup ~/haxelib
-        
-    - name: Install Core Libraries
-      run: |
-        haxelib install lime --quiet
-        haxelib install openfl 9.2.2 --quiet
-        haxelib run lime setup -y
-        
-    - name: Install Custom CNE Libraries (Priority Order)
-      run: |
-        # Install CNE custom versions first to avoid conflicts
-        haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
-        haxelib git flixel-addons https://github.com/CodenameCrew/cne-flixel-addons --quiet
-        haxelib install flixel-ui 2.6.1 --quiet
-        
-    - name: Install Additional Dependencies
-      run: |
-        # CNE-specific hscript-improved with custom-classes branch
-        echo "Installing hscript-improved..."
-        haxelib git hscript-improved https://github.com/CodenameCrew/hscript-improved custom-classes --quiet
-        
-        # FlxAnimate - CNE version
-        echo "Installing flxanimate..."
-        haxelib git flxanimate https://github.com/CodenameCrew/cne-flxanimate --quiet
-        
-        # Core dependencies
-        haxelib install format --quiet
-        haxelib install markdown --quiet
-        haxelib install nape-haxe4 --quiet
-        
-        # Video library (skip dependencies to avoid conflicts)
-        haxelib install hxvlc 1.9.3 --quiet || echo "hxvlc not available, skipping"
-        
-        # Away3D for 3D features
-        haxelib git away3d https://github.com/CodenameCrew/away3d --quiet || echo "away3d not available, skipping"
-        
-        # CNE HXCPP
-        haxelib git hxcpp https://github.com/CodenameCrew/cne-hxcpp --quiet
-        
-        echo "All dependencies installed"
-        
-    - name: Setup iOS
-      run: |
-        haxelib run lime setup ios -y
-        
-    - name: Create project.xml
-      run: |
-        cat > project.xml << 'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <project>
-        	<app
-        		title="Friday Night Funkin' - Codename Engine" main="funkin.backend.system.Main"
-        		file="CodenameEngine" packageName="com.yoshman29.codenameengine"
-        		package="com.yoshman29.codenameengine"
-        		version="0.1.0-legacy" company="Yoshman29" />
-
-        	<app save-path="YoshiCrafter29/CodenameEngine" save-name="save-default" mod-saves="true" />
-        	<haxedef name="REGION" />
-        	<app preloader="flixel.system.FlxPreloader" />
-        	<set name="SWF_VERSION" value="11.8" />
-
-        	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" />
-        	<window if="html5" resizable="true" />
-        	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" vsync="false"/>
-        	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
-
-        	<set name="BUILD_DIR" value="export/debug" if="debug" />
-        	<set name="BUILD_DIR" value="export/release" unless="debug" />
-        	<source name="source" />
-        	<assets path='assets/mobile' if='mobile'/>
-
-        	<define name="PRELOAD_ALL" unless="web" />
-        	<define name="NO_PRELOAD_ALL" unless="PRELOAD_ALL"/>
-        	<library name="assets" preload="true" if="PRELOAD_ALL"/>
-        	<library name="assets" preload="false" if="NO_PRELOAD_ALL" />
-
-        	<assets path="assets/" rename="assets" exclude="*.ogg" if="web"/>
-        	<assets path="assets/" rename="assets" exclude="*.mp3" unless="web"/>
-        	<assets path='mods' rename='mods' embed='false'/>
-
-        	<!-- Build configuration -->
-        	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
-        	<haxedef name="FLX_NO_DEBUG" unless="debug" />
-        	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
-        	<haxedef name="MOD_SUPPORT" unless="web"/>
-        	
-        	<!-- Disable problematic features for iOS build -->
-        	<haxedef name="NO_PRECOMPILED_HEADERS" />
-        	<haxedef name="HXCPP_SMART_STRINGS" />
-        	
-        	<!-- Custom macros -->
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
-        	
-        	<!-- Compilation flags -->
-        	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
-        
-        	<!-- App icons -->
-        	<icon path="art/icon16.png" size='16'/>
-        	<icon path="art/icon32.png" size='32'/>
-        	<icon path="art/icon64.png" size='64'/>
-        	<icon path="art/iconOG.png" />
-
-        	<!-- Platform defines -->
-        	<define name="DISCORD_RPC" if="desktop"/>
-        	<define name="GITHUB_API" unless="web || hl"/>
-        	<define name="COMPILE_ALL_CLASSES" />
-        	<define name="CUSTOM_CLASSES" />
-        	<define name="VIDEO_CUTSCENES" if="desktop || android" />
-
-        	<!-- Required libraries -->
-        	<haxelib name="flixel" />
-        	<haxelib name="flixel-addons" />
-        	<haxelib name="flixel-ui" />
-        	<haxelib name="format" />
-        	<haxelib name="flxanimate" />
-        	<haxelib name="hscript-improved" />
-        	<haxelib name="markdown" />
-        	<haxelib name="nape-haxe4" />
-        	<haxelib name="away3d" if="desktop" />
-        	<haxelib name="hxvlc" if="desktop" />
-        	<haxelib name="hxcpp" />
-
-        	<!-- Platform targets -->
-        	<android target-sdk-version="34" />
-        	<android min-sdk-version="19" />
-        	<ios deployment="12.0" />
-        </project>
-        EOF
-        echo "Created project.xml successfully"
-        
-    - name: List Installed Libraries
-      run: |
-        echo "=== Installed libraries ==="
-        haxelib list
-        
-    - name: Check Source Code Structure and Apply Compatibility Fixes
-      run: |
-        echo "=== Checking source directory structure ==="
-        if [ -d "source" ]; then
-          echo "Source directory found"
-          find source -name "*.hx" -type f | head -10
+            find "$ARCHIVE_PATH" -type d -name "*.app" || echo "No .app directories found"
+            exit 1
+          fi
         else
-          echo "ERROR: No source directory found!"
-          echo "Available directories:"
-          ls -la
-          exit 1
+          echo "IPA export completed successfully"
         fi
         
-        echo "=== Checking for required assets ==="
-        if [ -d "assets" ]; then
-          echo "Assets directory found"
-        else
-          echo "WARNING: No assets directory found"
-        fi
-        
-        echo "=== Verifying flxanimate installation ==="
-        haxelib list | grep flxanimate || echo "flxanimate not found in haxelib list"
-        
-        # Verify FlxSymbolAnimation exists
-        flxanimate_path=$(haxelib path flxanimate | head -1)
-        if [ -f "${flxanimate_path}flxanimate/animate/FlxSymbolAnimation.hx" ]; then
-          echo "SUCCESS: FlxSymbolAnimation found in CNE flxanimate"
-        else
-          echo "WARNING: FlxSymbolAnimation not found at expected location"
-          find "$flxanimate_path" -name "*.hx" | grep -i symbol || echo "No symbol-related files found"
-        fi
-        
-        echo "=== Applying compatibility fixes ==="
-        
-        # Fix ALL HScript.hx issues at once
-        if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
-          echo "Fixing ALL HScript.hx issues..."
-          
-          # Create backup
-          cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
-          
-          echo "Before fixes - showing problematic lines:"
-          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          
-          # Fix line 61 - hscript.Error cannot be constructed
-          sed -i '' '61s/.*/\t\t\t\t\tcallback(hscript.Error.ECustom("HScript Error"));/' source/funkin/backend/scripting/HScript.hx
-          
-          # Fix line 84 - Unknown identifier: message + hscript.Error.ECustom
-          sed -i '' '84s/.*/\t\t\tthrow hscript.Error.ECustom("HScript execution error");/' source/funkin/backend/scripting/HScript.hx
-          
-          # Fix lines 98, 101, 102 - hscript.Error has no field origin/line/toString
-          # These are trying to access fields that don't exist on the enum
-          sed -i '' '98s/.*/\t\t\t\tvar origin = "unknown"; \/\/ error.origin not available/' source/funkin/backend/scripting/HScript.hx
-          sed -i '' '101s/.*/\t\t\t\tvar line = -1; \/\/ error.line not available/' source/funkin/backend/scripting/HScript.hx
-          sed -i '' '102s/.*/\t\t\t\tvar errorStr = "HScript Error"; \/\/ error.toString() not available/' source/funkin/backend/scripting/HScript.hx
-          
-          # Fix lines 107, 111 - String has no field startsWith (old Haxe version issue)
-          # Replace .startsWith with StringTools.startsWith
-          sed -i '' 's/\.startsWith(/StringTools.startsWith(/g' source/funkin/backend/scripting/HScript.hx
-          
-          # Add import for StringTools at the top of the file (after package declaration)
-          # First, check if using StringTools; already exists
-          if ! grep -q "using StringTools" source/funkin/backend/scripting/HScript.hx; then
-            # Find the line with package declaration and add using StringTools after it
-            if grep -n "^package" source/funkin/backend/scripting/HScript.hx > /dev/null; then
-              package_line=$(grep -n "^package" source/funkin/backend/scripting/HScript.hx | head -1 | cut -d: -f1)
-              sed -i '' "${package_line}a\\
-using StringTools;" source/funkin/backend/scripting/HScript.hx
-            else
-              # If no package declaration found, add at the very top
-              sed -i '' '1i\\
-using StringTools;' source/funkin/backend/scripting/HScript.hx
-            fi
-          fi
-          
-          echo "After fixes - showing fixed lines:"
-          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
-          
-          echo "ALL HScript.hx issues fixed"
-        fi
-        
-        # Fix Main.hx mobile compatibility - MUCH MORE CAREFUL approach
-        if [ -f "source/funkin/backend/system/Main.hx" ]; then
-          echo "Fixing Main.hx mobile compatibility..."
-          
-          # Create backup
-          cp source/funkin/backend/system/Main.hx source/funkin/backend/system/Main.hx.backup
-          
-          # Show the problematic line first
-          echo "Checking line 176 before fix:"
-          sed -n '176p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Line 176 not found"
-          
-          # Instead of blanket replacement, use more targeted fixes
-          # Look for specific patterns that might be problematic
-          
-          # Fix FlxG.mouse access with proper conditional compilation
-          # First, let's see what's actually on line 176
-          echo "Content around line 176:"
-          sed -n '170,180p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Lines not found"
-          
-          # Use a more surgical approach - only fix lines that actually have mouse issues
-          # and preserve proper Haxe syntax
-          sed -i '' 's/FlxG\.mouse\.visible = false;/#if !mobile FlxG.mouse.visible = false; #end/g' source/funkin/backend/system/Main.hx
-          sed -i '' 's/FlxG\.mouse\.visible = true;/#if !mobile FlxG.mouse.visible = true; #end/g' source/funkin/backend/system/Main.hx
-          
-          # Fix any remaining mouse references that aren't assignments
-          sed -i '' 's/if (FlxG\.mouse\./if (#if !mobile FlxG.mouse. #else false #end \&\&/g' source/funkin/backend/system/Main.hx
-          
-          echo "Applied Main.hx mobile fixes"
-          
-          # Verify the fix didn't break syntax
-          echo "Checking line 176 after fix:"
-          sed -n '176p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Line 176 not found"
-        fi
-        
-        # Fix Framerate codenameBuildField issues with better syntax preservation
-        echo "Fixing Framerate.codenameBuildField issues..."
-        
-        # Character Editor fixes
-        if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
-          cp source/funkin/editors/character/CharacterEditor.hx source/funkin/editors/character/CharacterEditor.hx.backup
-          
-          # More careful replacement that preserves syntax
-          sed -i '' 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/character/CharacterEditor.hx
-          
-          echo "Fixed CharacterEditor.hx"
-        fi
-        
-        # Charter fixes with syntax preservation
-        if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
-          cp source/funkin/editors/charter/Charter.hx source/funkin/editors/charter/Charter.hx.backup
-          
-          # Replace with null and preserve syntax
-          sed -i '' 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/charter/Charter.hx
-          
-          echo "Fixed Charter.hx"
-        fi
-        
-        echo "=== Compatibility fixes applied ==="
-        
-        # Final syntax check - look for obvious syntax errors
-        echo "=== Performing syntax validation ==="
-        if [ -f "source/funkin/backend/system/Main.hx" ]; then
-          echo "Checking for obvious syntax errors in Main.hx:"
-          # Look for double colons, malformed conditionals, etc.
-          if grep -n "::" source/funkin/backend/system/Main.hx; then
-            echo "WARNING: Found double colons - potential syntax error"
-          fi
-          if grep -n "#end.*#if" source/funkin/backend/system/Main.hx; then
-            echo "WARNING: Found malformed conditional compilation"
-          fi
-          if grep -n "null.*:" source/funkin/backend/system/Main.hx; then
-            echo "WARNING: Found potential null syntax issue"
-          fi
-        fi
-        
-    - name: Configure Xcode for Unsigned Build
-      run: |
-        # Set up Xcode command line tools
-        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-        
-, not a constructable class."
-            echo "Common fix: Replace 'new hscript.Error(...)' with 'hscript.Error.ECustom(...)'"
-          fi
-          
-          # Check if it's a mouse/mobile issue
-          if grep -q "FlxG\.mouse" build_output.log; then
-            echo "FlxG.mouse mobile compatibility issue still present!"
-          fi
-          
-          echo ""
-          echo "=== SHOWING PROBLEMATIC FILE CONTENT ==="
-          
-          # If it's Main.hx line 176, show that area
-          if grep -q "Main\.hx:176" build_output.log; then
-            echo "Content around Main.hx line 176:"
-            sed -n '170,180p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Could not read Main.hx"
-          fi
-          
-          exit 1
-        fi
-        
-        echo "Build completed at: $(date)"
-        
-    - name: Create Unsigned IPA
-      run: |
-        echo "Creating unsigned IPA..."
-        export_path="export/release/ios/build/Release-iphoneos"
-        
-        if [ ! -d "$export_path" ]; then
-          echo "ERROR: Build output directory not found at $export_path"
-          echo "Available directories:"
-          find export -type d -name "*.app" 2>/dev/null || echo "No .app directories found"
-          exit 1
-        fi
-        
-        cd "$export_path"
-        
-        # Find the .app bundle
-        app_bundle=$(find . -name "*.app" | head -1)
-        if [ -z "$app_bundle" ]; then
-          echo "ERROR: No .app bundle found"
-          ls -la
-          exit 1
-        fi
-        
-        echo "Found app bundle: $app_bundle"
-        
-        # Create Payload directory structure
-        mkdir -p Payload
-        
-        # Copy the .app bundle to Payload
-        cp -r "$app_bundle" Payload/
-        
-        # Create the IPA
-        zip -r CodenameEngine-unsigned.ipa Payload/
-        
-        echo "Unsigned IPA created successfully"
-        ls -la *.ipa
-        
-    - name: Upload Unsigned IPA
+        echo "Looking for IPA files..."
+        find build/export -name "*.ipa" | head -5
+
+    - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: ios-unsigned-ipa
-        path: export/release/ios/build/Release-iphoneos/*.ipa
+        path: build/export/*.ipa
         if-no-files-found: warn
         
     - name: Upload App Bundle (fallback)
       uses: actions/upload-artifact@v4
       with:
         name: ios-app-bundle
-        path: export/release/ios/build/Release-iphoneos/*.app
+        path: build/export/Payload/*.app
         if-no-files-found: warn
