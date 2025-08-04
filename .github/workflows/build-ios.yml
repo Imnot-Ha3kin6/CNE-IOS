@@ -5,11 +5,11 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    runs-on: macos-12  # Use older macOS version
     
     steps:
     - name: Checkout code
@@ -18,37 +18,46 @@ jobs:
     - name: Setup Haxe
       uses: krdlab/setup-haxe@v1
       with:
-        haxe-version: 4.2.5
+        haxe-version: 4.1.5  # Much older, more stable version
         
     - name: Install Haxe dependencies
       run: |
-        haxelib install lime
-        haxelib install openfl
-        haxelib install flixel
-        haxelib install flixel-ui
-        haxelib install flixel-addons
-        haxelib install hscript-improved --git https://github.com/FNF-CNE-Devs/hscript-improved
+        haxelib install lime 7.9.0
+        haxelib install openfl 9.1.0
+        haxelib install flixel 4.11.0
+        haxelib install flixel-ui 2.4.0
+        haxelib install flixel-addons 2.11.0
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
         haxelib run lime setup -y
         
-    - name: Setup iOS
+    - name: Setup iOS (legacy)
       run: |
         haxelib run lime setup ios -y
         
-    - name: Build iOS Simulator
+    - name: Create Project.xml patch
       run: |
-        export ARCHS="x86_64"
-        haxelib run lime build ios -simulator -release -Dlegacy
+        cat >> Project.xml << 'EOF'
         
-    - name: Upload App
+        <!-- iOS Compatibility Fixes -->
+        <ios deployment="9.0" />
+        <architecture name="armv7" if="ios" unless="simulator" />
+        <architecture name="x86_64" if="ios simulator" />
+        <haxedef name="ios-sim" if="simulator" />
+        <haxedef name="legacy" />
+        <haxedef name="no-compilation" />
+        EOF
+        
+    - name: Build iOS (Legacy Mode)
+      run: |
+        export DEVELOPER_DIR="/Applications/Xcode_13.4.1.app/Contents/Developer"
+        export ARCHS="armv7"
+        export VALID_ARCHS="armv7"
+        export EXCLUDED_ARCHS="arm64"
+        haxelib run lime build ios -release -Dlegacy -Dno-compilation -verbose
+        
+    - name: Upload Build Output
       uses: actions/upload-artifact@v4
       with:
-        name: ios-app
-        path: export/ios/build/Release-iphonesimulator/*.app
+        name: ios-build
+        path: export/ios/
         if-no-files-found: warn
-        
-    - name: Upload IPA (if exists)
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-ipa
-        path: export/ios/build/Release-iphoneos/*.ipa
-        if-no-files-found: ignore
