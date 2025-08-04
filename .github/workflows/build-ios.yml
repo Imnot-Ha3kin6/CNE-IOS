@@ -274,22 +274,37 @@ jobs:
           exit 1
         fi
         
-        echo "Starting iOS build with timeout protection..."
+        echo "Starting iOS build..."
         echo "Build started at: $(date)"
         
-        # Run the build with timeout monitoring
-        timeout 25m haxelib run lime build "$project_file" ios -release -nosign -verbose || {
-          echo "Build timed out or failed at: $(date)"
-          echo "Checking build status..."
-          
-          # Check if partial build exists
-          if [ -d "export/release/ios/build" ]; then
-            echo "Partial build directory exists. Listing contents:"
-            find export/release/ios/build -name "*.app" -o -name "*.ipa" | head -5
+        # Run the build with background process monitoring (macOS compatible)
+        haxelib run lime build "$project_file" ios -release -nosign -verbose &
+        BUILD_PID=$!
+        
+        # Wait for build to complete or timeout after 25 minutes
+        for i in {1..1500}; do
+          if ! kill -0 $BUILD_PID 2>/dev/null; then
+            wait $BUILD_PID
+            BUILD_EXIT_CODE=$?
+            break
           fi
-          
+          sleep 1
+        done
+        
+        # If we got here and process is still running, kill it
+        if kill -0 $BUILD_PID 2>/dev/null; then
+          echo "Build timed out after 25 minutes, terminating..."
+          kill -TERM $BUILD_PID 2>/dev/null
+          sleep 5
+          kill -KILL $BUILD_PID 2>/dev/null
           exit 1
-        }
+        fi
+        
+        # Check build result
+        if [ ${BUILD_EXIT_CODE:-1} -ne 0 ]; then
+          echo "Build failed with exit code: ${BUILD_EXIT_CODE:-1}"
+          exit 1
+        fi
         
         echo "Build completed at: $(date)"
         
