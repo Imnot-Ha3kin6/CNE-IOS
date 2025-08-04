@@ -1,0 +1,46 @@
+name: Build iOS App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Haxe
+      uses: krdlab/setup-haxe@v1
+      with:
+        haxe-version: 4.3.4
+        
+    - name: Install Haxe dependencies
+      run: |
+        haxelib install lime
+        haxelib install openfl
+        haxelib install flixel
+        haxelib install flixel-ui
+        haxelib install flixel-addons
+        haxelib install hscript-improved --git https://github.com/FNF-CNE-Devs/hscript-improved
+        haxelib run lime setup -y
+        
+    - name: Setup iOS
+      run: |
+        haxelib run lime setup ios -y
+        
+    - name: Build iOS
+      run: |
+        haxelib run lime build ios -release
+        
+    - name: Upload IPA
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios-app
+        path: export/ios/build/Release-iphoneos/*.ipa
+        if-no-files-found: warn
