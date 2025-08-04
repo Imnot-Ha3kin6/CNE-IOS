@@ -12,17 +12,18 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    # 1. Checkout repo
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Select Xcode 15.4
-      run: sudo xcode-select --switch /Applications/Xcode_15.4.app
-
-    - name: Fix missing make
+    # 2. Select correct Xcode and fix missing make
+    - name: Set up Xcode and fix make
       run: |
+        sudo xcode-select --switch /Applications/Xcode_15.4.app
         sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
         sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
 
+    # 3. Locate Xcode project
     - name: Find Xcode Project
       run: |
         xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
@@ -31,8 +32,10 @@ jobs:
           ls -la
           exit 1
         fi
+        echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
 
+    # 4. Archive the app
     - name: Archive iOS App
       run: |
         xcodebuild archive \
@@ -49,19 +52,24 @@ jobs:
           ONLY_ACTIVE_ARCH=NO
         echo "ARCHIVE_PATH=build/CodenameEngine.xcarchive" >> $GITHUB_ENV
 
+    # 5. Package IPA
     - name: Create IPA
       run: |
         mkdir -p build/export/Payload
         app_path=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" | head -1)
         if [ -z "$app_path" ]; then
           echo "No .app found in archive"
+          find "$ARCHIVE_PATH" -type f
           exit 1
         fi
         cp -r "$app_path" build/export/Payload/
         cd build/export
         zip -r CodenameEngine.ipa Payload
         cd ../..
+        echo "IPA created successfully"
+        ls -la build/export/
 
+    # 6. Upload IPA
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
