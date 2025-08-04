@@ -21,7 +21,8 @@ jobs:
         
     - name: Setup Haxelib
       run: |
-        haxelib setup /usr/local/lib/haxe/lib
+        mkdir -p ~/haxelib
+        haxelib setup ~/haxelib
         
     - name: Install Haxe dependencies
       run: |
