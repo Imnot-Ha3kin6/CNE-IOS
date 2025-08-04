@@ -28,10 +28,18 @@ jobs:
         # Install Haxe if your project requires it
         if [ -f "project.xml" ] || [ -f "Project.xml" ]; then
           brew install haxe
-          haxelib setup /usr/local/lib/haxe/lib
+          
+          # Create haxelib directory in user space instead of system directory
+          mkdir -p ~/haxelib
+          haxelib setup ~/haxelib
+          
           # Add any specific haxelib dependencies your project needs
           # haxelib install lime
           # haxelib install openfl
+          
+          # Set up Haxe environment variables
+          echo "HAXE_STD_PATH=/opt/homebrew/lib/haxe/std" >> $GITHUB_ENV
+          echo "HAXELIB_PATH=~/haxelib" >> $GITHUB_ENV
         fi
         
     - name: Find Xcode Project
@@ -61,8 +69,17 @@ jobs:
         mkdir -p build/archives
         archive_path="build/archives/${project_name}.xcarchive"
         
-        # Set up environment for make
-        export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+        # Set up environment for make and Haxe
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+        export HAXE_STD_PATH="/opt/homebrew/lib/haxe/std"
+        export HAXELIB_PATH="$HOME/haxelib"
+        
+        # Debug environment
+        echo "PATH: $PATH"
+        echo "HAXE_STD_PATH: $HAXE_STD_PATH"
+        echo "HAXELIB_PATH: $HAXELIB_PATH"
+        which make || echo "make not found"
+        which haxe || echo "haxe not found"
         
         # Build with proper environment
         xcodebuild archive \
