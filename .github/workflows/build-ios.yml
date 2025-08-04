@@ -43,14 +43,22 @@ jobs:
         haxelib install format --quiet
         haxelib install markdown --quiet
         
-        # CNE specific libraries
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet
+        # Try CNE-specific hscript-improved version first
+        echo "Installing hscript-improved..."
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet || \
+        haxelib git hscript-improved https://github.com/YoshiCrafter29/hscript-improved --quiet || \
+        haxelib install hscript --quiet
         
-        # FlxAnimate - try CNE version first, fallback to official
-        haxelib git flxanimate https://github.com/CodenameCrew/flxanimate --quiet || haxelib install flxanimate --quiet
+        # FlxAnimate - try multiple sources
+        echo "Installing flxanimate..."
+        haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate --quiet || \
+        haxelib install flxanimate --quiet
         
-        # Android tools (may not be needed for iOS but keeping for compatibility)
-        haxelib install extension-androidtools --quiet || echo "Android tools not available, skipping"
+        # Additional libraries that might be needed
+        haxelib install tjson --quiet || echo "tjson not available, skipping"
+        haxelib install hxcpp --silent || echo "hxcpp already installed"
+        
+        echo "All dependencies installed"
         
     - name: Setup iOS
       run: |
@@ -91,24 +99,36 @@ jobs:
         	<assets path="assets/" rename="assets" exclude="*.mp3" unless="web"/>
         	<assets path='mods' rename='mods' embed='false'/>
 
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
+        	<!-- Build configuration -->
         	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
         	<haxedef name="FLX_NO_DEBUG" unless="debug" />
-
+        	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
+        	<haxedef name="MOD_SUPPORT" unless="web"/>
+        	
+        	<!-- Disable problematic features for iOS build -->
+        	<haxedef name="NO_PRECOMPILED_HEADERS" />
+        	
+        	<!-- Custom macros -->
+        	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
+        	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
+        	
+        	<!-- Compilation flags -->
+        	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
+        
+        	<!-- App icons -->
         	<icon path="art/icon16.png" size='16'/>
         	<icon path="art/icon32.png" size='32'/>
         	<icon path="art/icon64.png" size='64'/>
         	<icon path="art/iconOG.png" />
 
+        	<!-- Platform defines -->
         	<define name="DISCORD_RPC" if="desktop"/>
         	<define name="GITHUB_API" unless="web || hl"/>
         	<define name="COMPILE_ALL_CLASSES" />
         	<define name="CUSTOM_CLASSES" />
-        	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
-        	<haxedef name="MOD_SUPPORT" unless="web"/>
         	<define name="VIDEO_CUTSCENES" if="desktop || android" />
-        	<!-- Remove FLX_NO_GENERIC as it's not a valid flixel define -->
 
+        	<!-- Required libraries -->
         	<haxelib name="flixel" />
         	<haxelib name="flixel-addons" />
         	<haxelib name="flixel-ui" />
@@ -117,12 +137,10 @@ jobs:
         	<haxelib name="hscript-improved" />
         	<haxelib name="markdown" />
 
+        	<!-- Platform targets -->
         	<android target-sdk-version="34" />
         	<android min-sdk-version="19" />
         	<ios deployment="12.0" />
-
-        	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
         </project>
         EOF
         echo "Created project.xml successfully"
@@ -132,18 +150,25 @@ jobs:
         echo "All libraries installed successfully"
         haxelib list
         
-    - name: Debug Project Files
+    - name: Check Source Code Structure
       run: |
-        echo "=== Current Directory ==="
-        pwd
-        echo "=== All Files ==="
-        ls -la
-        echo "=== XML Files ==="
-        find . -name "*.xml" -type f
-        echo "=== Project.xml Content ==="
-        cat project.xml || echo "Cannot read project.xml"
-        echo "=== File Permissions ==="
-        ls -la project.xml || echo "project.xml not found"
+        echo "=== Checking source directory structure ==="
+        if [ -d "source" ]; then
+          echo "Source directory found"
+          find source -name "*.hx" -type f | head -10
+        else
+          echo "ERROR: No source directory found!"
+          echo "Available directories:"
+          ls -la
+          exit 1
+        fi
+        
+        echo "=== Checking for required assets ==="
+        if [ -d "assets" ]; then
+          echo "Assets directory found"
+        else
+          echo "WARNING: No assets directory found"
+        fi
         
     - name: Configure Xcode for Unsigned Build
       run: |
