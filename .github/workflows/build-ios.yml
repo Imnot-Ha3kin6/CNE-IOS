@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch: # Manual trigger
 
 jobs:
   build-ios:
@@ -32,35 +32,22 @@ jobs:
         
     - name: Install Custom CNE Libraries (Priority Order)
       run: |
-        # Install CNE custom versions first to avoid conflicts
         haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
         haxelib git flixel-addons https://github.com/CodenameCrew/cne-flixel-addons --quiet
         haxelib install flixel-ui 2.6.1 --quiet
         
     - name: Install Additional Dependencies
       run: |
-        # CNE-specific hscript-improved with custom-classes branch
         echo "Installing hscript-improved..."
         haxelib git hscript-improved https://github.com/CodenameCrew/hscript-improved custom-classes --quiet
-        
-        # FlxAnimate - CNE version
         echo "Installing flxanimate..."
         haxelib git flxanimate https://github.com/CodenameCrew/cne-flxanimate --quiet
-        
-        # Core dependencies
         haxelib install format --quiet
         haxelib install markdown --quiet
         haxelib install nape-haxe4 --quiet
-        
-        # Video library (skip dependencies to avoid conflicts)
         haxelib install hxvlc 1.9.3 --quiet || echo "hxvlc not available, skipping"
-        
-        # Away3D for 3D features
         haxelib git away3d https://github.com/CodenameCrew/away3d --quiet || echo "away3d not available, skipping"
-        
-        # CNE HXCPP
         haxelib git hxcpp https://github.com/CodenameCrew/cne-hxcpp --quiet
-        
         echo "All dependencies installed"
         
     - name: Setup iOS
@@ -70,360 +57,87 @@ jobs:
     - name: Create project.xml
       run: |
         cat > project.xml << 'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <project>
-        	<app
-        		title="Friday Night Funkin' - Codename Engine" main="funkin.backend.system.Main"
-        		file="CodenameEngine" packageName="com.yoshman29.codenameengine"
-        		package="com.yoshman29.codenameengine"
-        		version="0.1.0-legacy" company="Yoshman29" />
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+  <app
+    title="Friday Night Funkin' - Codename Engine" main="funkin.backend.system.Main"
+    file="CodenameEngine" packageName="com.yoshman29.codenameengine"
+    package="com.yoshman29.codenameengine"
+    version="0.1.0-legacy" company="Yoshman29" />
 
-        	<app save-path="YoshiCrafter29/CodenameEngine" save-name="save-default" mod-saves="true" />
-        	<haxedef name="REGION" />
-        	<app preloader="flixel.system.FlxPreloader" />
-        	<set name="SWF_VERSION" value="11.8" />
+  <app save-path="YoshiCrafter29/CodenameEngine" save-name="save-default" mod-saves="true" />
+  <haxedef name="REGION" />
+  <app preloader="flixel.system.FlxPreloader" />
+  <set name="SWF_VERSION" value="11.8" />
 
-        	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" />
-        	<window if="html5" resizable="true" />
-        	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" vsync="false"/>
-        	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
+  <window width="1280" height="720" background="#000000" hardware="true" vsync="false" />
+  <window if="html5" resizable="true" />
+  <window if="desktop" orientation="landscape" fullscreen="false" resizable="true" vsync="false"/>
+  <window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
 
-        	<set name="BUILD_DIR" value="export/debug" if="debug" />
-        	<set name="BUILD_DIR" value="export/release" unless="debug" />
-        	<source name="source" />
-        	<assets path='assets/mobile' if='mobile'/>
+  <set name="BUILD_DIR" value="export/debug" if="debug" />
+  <set name="BUILD_DIR" value="export/release" unless="debug" />
+  <source name="source" />
+  <assets path='assets/mobile' if='mobile'/>
 
-        	<define name="PRELOAD_ALL" unless="web" />
-        	<define name="NO_PRELOAD_ALL" unless="PRELOAD_ALL"/>
-        	<library name="assets" preload="true" if="PRELOAD_ALL"/>
-        	<library name="assets" preload="false" if="NO_PRELOAD_ALL" />
+  <define name="PRELOAD_ALL" unless="web" />
+  <define name="NO_PRELOAD_ALL" unless="PRELOAD_ALL"/>
+  <library name="assets" preload="true" if="PRELOAD_ALL"/>
+  <library name="assets" preload="false" if="NO_PRELOAD_ALL" />
 
-        	<assets path="assets/" rename="assets" exclude="*.ogg" if="web"/>
-        	<assets path="assets/" rename="assets" exclude="*.mp3" unless="web"/>
-        	<assets path='mods' rename='mods' embed='false'/>
+  <assets path="assets/" rename="assets" exclude="*.ogg" if="web"/>
+  <assets path="assets/" rename="assets" exclude="*.mp3" unless="web"/>
+  <assets path='mods' rename='mods' embed='false'/>
 
-        	<!-- Build configuration -->
-        	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
-        	<haxedef name="FLX_NO_DEBUG" unless="debug" />
-        	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
-        	<haxedef name="MOD_SUPPORT" unless="web"/>
-        	
-        	<!-- iOS specific fixes -->
-        	<haxedef name="NO_PRECOMPILED_HEADERS" />
-        	<haxedef name="HXCPP_SMART_STRINGS" />
-        	<haxedef name="mobile" if="ios" />
-        	<haxedef name="ios" if="ios" />
-        	
-        	<!-- Custom macros -->
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
-        	
-        	<!-- Compilation flags -->
-        	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
-        
-        	<!-- App icons -->
-        	<icon path="art/icon16.png" size='16'/>
-        	<icon path="art/icon32.png" size='32'/>
-        	<icon path="art/icon64.png" size='64'/>
-        	<icon path="art/iconOG.png" />
+  <!-- Build configuration -->
+  <haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
+  <haxedef name="FLX_NO_DEBUG" unless="debug" />
+  <haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
+  <haxedef name="MOD_SUPPORT" unless="web"/>
+  
+  <!-- iOS specific fixes -->
+  <haxedef name="NO_PRECOMPILED_HEADERS" />
+  <haxedef name="HXCPP_SMART_STRINGS" />
+  <haxedef name="mobile" if="ios" />
+  <haxedef name="ios" if="ios" />
+  
+  <!-- Custom macros -->
+  <haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
+  <haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
+  
+  <!-- Compilation flags -->
+  <haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
 
-        	<!-- Platform defines -->
-        	<define name="DISCORD_RPC" if="desktop"/>
-        	<define name="GITHUB_API" unless="web || hl"/>
-        	<define name="COMPILE_ALL_CLASSES" />
-        	<define name="CUSTOM_CLASSES" />
-        	<define name="VIDEO_CUTSCENES" if="desktop || android" />
+  <!-- App icons -->
+  <icon path="art/icon16.png" size='16'/>
+  <icon path="art/icon32.png" size='32'/>
+  <icon path="art/icon64.png" size='64'/>
+  <icon path="art/iconOG.png" />
 
-        	<!-- Required libraries -->
-        	<haxelib name="flixel" />
-        	<haxelib name="flixel-addons" />
-        	<haxelib name="flixel-ui" />
-        	<haxelib name="format" />
-        	<haxelib name="flxanimate" />
-        	<haxelib name="hscript-improved" />
-        	<haxelib name="markdown" />
-        	<haxelib name="nape-haxe4" />
-        	<haxelib name="away3d" if="desktop" />
-        	<haxelib name="hxvlc" if="desktop" />
-        	<haxelib name="hxcpp" />
+  <!-- Platform defines -->
+  <define name="DISCORD_RPC" if="desktop"/>
+  <define name="GITHUB_API" unless="web || hl"/>
+  <define name="COMPILE_ALL_CLASSES" />
+  <define name="CUSTOM_CLASSES" />
+  <define name="VIDEO_CUTSCENES" if="desktop || android" />
 
-        	<!-- Platform targets -->
-        	<android target-sdk-version="34" />
-        	<android min-sdk-version="19" />
-        	<ios deployment="12.0" />
-        </project>
-        EOF
+  <!-- Required libraries -->
+  <haxelib name="flixel" />
+  <haxelib name="flixel-addons" />
+  <haxelib name="flixel-ui" />
+  <haxelib name="format" />
+  <haxelib name="flxanimate" />
+  <haxelib name="hscript-improved" />
+  <haxelib name="markdown" />
+  <haxelib name="nape-haxe4" />
+  <haxelib name="away3d" if="desktop" />
+  <haxelib name="hxvlc" if="desktop" />
+  <haxelib name="hxcpp" />
+
+  <!-- Platform targets -->
+  <android target-sdk-version="34" />
+  <android min-sdk-version="19" />
+  <ios deployment="12.0" />
+</project>
+EOF
         echo "Created project.xml successfully"
-        
-    - name: List Installed Libraries
-      run: |
-        echo "=== Installed libraries ==="
-        haxelib list
-        
-    - name: Apply Source Code Compatibility Fixes
-      run: |
-        echo "=== Checking source directory structure ==="
-        if [ -d "source" ]; then
-          echo "Source directory found"
-          find source -name "*.hx" -type f | head -10
-        else
-          echo "ERROR: No source directory found!"
-          echo "Available directories:"
-          ls -la
-          exit 1
-        fi
-        
-        echo "=== Checking for required assets ==="
-        if [ -d "assets" ]; then
-          echo "Assets directory found"
-        else
-          echo "WARNING: No assets directory found"
-        fi
-        
-        echo "=== Applying comprehensive compatibility fixes ==="
-        
-        # Fix HScript.hx - hscript.Error enum issues
-        if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
-          echo "Fixing HScript.hx..."
-          cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
-          
-          # Add StringTools import if not present
-          if ! grep -q "using StringTools" source/funkin/backend/scripting/HScript.hx; then
-            sed -i '' '1i\
-using StringTools;' source/funkin/backend/scripting/HScript.hx
-          fi
-          
-          # Fix hscript.Error constructor calls - replace with ECustom
-          sed -i '' 's/new hscript\.Error(/hscript.Error.ECustom(/g' source/funkin/backend/scripting/HScript.hx
-          sed -i '' 's/hscript\.Error(/hscript.Error.ECustom(/g' source/funkin/backend/scripting/HScript.hx
-          
-          # Fix error field access (origin, line, toString don't exist on enum)
-          sed -i '' 's/error\.origin/"unknown"/g' source/funkin/backend/scripting/HScript.hx
-          sed -i '' 's/error\.line/-1/g' source/funkin/backend/scripting/HScript.hx
-          sed -i '' 's/error\.toString()/"HScript Error"/g' source/funkin/backend/scripting/HScript.hx
-          
-          echo "HScript.hx fixes applied"
-        fi
-        
-        # Fix Main.hx mobile compatibility
-        if [ -f "source/funkin/backend/system/Main.hx" ]; then
-          echo "Fixing Main.hx mobile compatibility..."
-          cp source/funkin/backend/system/Main.hx source/funkin/backend/system/Main.hx.backup
-          
-          # Wrap mouse operations in conditional compilation
-          sed -i '' 's/FlxG\.mouse\.visible = false;/#if !mobile FlxG.mouse.visible = false; #end/g' source/funkin/backend/system/Main.hx
-          sed -i '' 's/FlxG\.mouse\.visible = true;/#if !mobile FlxG.mouse.visible = true; #end/g' source/funkin/backend/system/Main.hx
-          
-          echo "Main.hx mobile fixes applied"
-        fi
-        
-        # Fix Framerate.codenameBuildField issues
-        echo "Fixing Framerate.codenameBuildField references..."
-        
-        if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
-          cp source/funkin/editors/character/CharacterEditor.hx source/funkin/editors/character/CharacterEditor.hx.backup
-          sed -i '' 's/Framerate\.codenameBuildField/null \/\* codenameBuildField not available \*\//g' source/funkin/editors/character/CharacterEditor.hx
-          echo "Fixed CharacterEditor.hx"
-        fi
-        
-        if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
-          cp source/funkin/editors/charter/Charter.hx source/funkin/editors/charter/Charter.hx.backup
-          sed -i '' 's/Framerate\.codenameBuildField/null \/\* codenameBuildField not available \*\//g' source/funkin/editors/charter/Charter.hx
-          echo "Fixed Charter.hx"
-        fi
-        
-        # Fix StringTools usage for better compatibility
-        echo "Applying StringTools compatibility fixes..."
-        find source -name "*.hx" -exec sed -i '' 's/\.startsWith(/StringTools.startsWith(/g' {} + 2>/dev/null || true
-        find source -name "*.hx" -exec sed -i '' 's/\.endsWith(/StringTools.endsWith(/g' {} + 2>/dev/null || true
-        
-        # Fix FlxSymbolAnimation issues
-        echo "Checking for FlxSymbolAnimation compatibility..."
-        if grep -r "FlxSymbolAnimation" source/ > /dev/null 2>&1; then
-          echo "Found FlxSymbolAnimation references - verifying flxanimate installation..."
-          # Create compatibility stub if needed
-          mkdir -p source/flxanimate/animate
-          if [ ! -f "source/flxanimate/animate/FlxSymbolAnimation.hx" ]; then
-            cat > source/flxanimate/animate/FlxSymbolAnimation.hx << 'HAXE_EOF'
-package flxanimate.animate;
-
-// Compatibility stub for FlxSymbolAnimation
-class FlxSymbolAnimation {
-    public function new() {
-        // Stub implementation
-    }
-}
-HAXE_EOF
-            echo "Created FlxSymbolAnimation compatibility stub"
-          fi
-        fi
-        
-        # Add mobile-specific conditional compilation fixes
-        echo "Adding mobile conditional compilation fixes..."
-        find source -name "*.hx" -exec sed -i '' 's/#if desktop/#if (desktop \&\& !mobile)/g' {} + 2>/dev/null || true
-        
-        echo "=== All compatibility fixes applied ==="
-        
-    - name: Validate Syntax
-      run: |
-        echo "=== Performing syntax validation ==="
-        
-        error_count=0
-        
-        # Basic syntax checks
-        if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
-          echo "Validating HScript.hx..."
-          if grep -n "::" source/funkin/backend/scripting/HScript.hx; then
-            echo "ERROR: Found double colons in HScript.hx"
-            ((error_count++))
-          fi
-        fi
-        
-        if [ -f "source/funkin/backend/system/Main.hx" ]; then
-          echo "Validating Main.hx..."
-          if grep -n "#end.*#if" source/funkin/backend/system/Main.hx; then
-            echo "ERROR: Found malformed conditionals in Main.hx"
-            ((error_count++))
-          fi
-        fi
-        
-        if [ "$error_count" -gt 0 ]; then
-          echo "Found $error_count syntax errors - please review"
-          exit 1
-        fi
-        
-        echo "Syntax validation passed"
-        
-    - name: Configure Xcode for Unsigned Build
-      run: |
-        # Set up Xcode command line tools
-        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-        
-        # Accept Xcode license
-        sudo xcodebuild -license accept || echo "License already accepted"
-        
-    - name: Build iOS (Unsigned)
-      timeout-minutes: 45
-      run: |
-        project_file="project.xml"
-        
-        if [ ! -f "$project_file" ]; then
-          echo "No project file found!"
-          exit 1
-        fi
-        
-        echo "Starting iOS build..."
-        echo "Build started at: $(date)"
-        
-        # Set environment variables for unsigned build
-        export CODE_SIGN_IDENTITY=""
-        export CODE_SIGNING_REQUIRED=NO
-        export CODE_SIGNING_ALLOWED=NO
-        
-        # Run the build and capture output
-        set -o pipefail
-        if ! haxelib run lime build "$project_file" ios -release -nosign -verbose 2>&1 | tee build_output.log; then
-          echo "Build failed at: $(date)"
-          echo ""
-          echo "=== BUILD FAILURE ANALYSIS ==="
-          
-          # Show recent build output
-          echo "Last 100 lines of build output:"
-          tail -100 build_output.log
-          
-          echo ""
-          echo "=== SEARCHING FOR SPECIFIC ERRORS ==="
-          
-          # Look for Haxe compilation errors
-          echo "Compilation errors:"
-          grep -n "Error:" build_output.log || echo "No compilation errors found"
-          
-          # Look for syntax errors
-          echo "Syntax errors:"
-          grep -A5 -B5 "Unexpected" build_output.log || echo "No syntax errors found"
-          
-          # Look for missing class/field errors
-          echo "Missing field/type errors:"
-          grep -A3 -B3 "has no field\|Unknown identifier\|Type not found" build_output.log || echo "No missing field errors found"
-          
-          # Look for iOS/Xcode specific errors
-          echo "iOS/Xcode errors:"
-          grep -A3 -B3 "xcodebuild\|code signing\|provisioning" build_output.log || echo "No iOS/Xcode errors found"
-          
-          exit 1
-        fi
-        
-        echo "Build completed successfully at: $(date)"
-        
-    - name: Create Unsigned IPA
-      run: |
-        echo "Creating unsigned IPA..."
-        
-        # Look for the build output in various possible locations
-        possible_paths=(
-          "export/release/ios/build/Release-iphoneos"
-          "export/ios/build/Release-iphoneos"
-          "export/release/ios"
-          "export/ios"
-        )
-        
-        export_path=""
-        for path in "${possible_paths[@]}"; do
-          if [ -d "$path" ]; then
-            export_path="$path"
-            echo "Found build output at: $export_path"
-            break
-          fi
-        done
-        
-        if [ -z "$export_path" ]; then
-          echo "ERROR: Build output directory not found"
-          echo "Available directories in export:"
-          find export -type d 2>/dev/null || echo "No export directory found"
-          exit 1
-        fi
-        
-        cd "$export_path"
-        
-        # Find the .app bundle
-        app_bundle=$(find . -name "*.app" | head -1)
-        if [ -z "$app_bundle" ]; then
-          echo "ERROR: No .app bundle found"
-          echo "Contents of $export_path:"
-          ls -la
-          exit 1
-        fi
-        
-        echo "Found app bundle: $app_bundle"
-        
-        # Create Payload directory structure for IPA
-        mkdir -p Payload
-        cp -r "$app_bundle" Payload/
-        
-        # Create the IPA file
-        zip -r CodenameEngine-unsigned.ipa Payload/
-        
-        echo "Unsigned IPA created successfully"
-        ls -la *.ipa
-        
-        # Move IPA to workspace root for easier artifact collection
-        mv CodenameEngine-unsigned.ipa "${GITHUB_WORKSPACE}/"
-        
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-build-artifacts
-        path: |
-          CodenameEngine-unsigned.ipa
-          export/**/Release-iphoneos/*.app
-        if-no-files-found: warn
-        
-    - name: Upload Build Logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-logs
-        path: |
-          build_output.log
-          source/**/*.backup
-        if-no-files-found: ignore
