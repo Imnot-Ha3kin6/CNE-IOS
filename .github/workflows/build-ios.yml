@@ -49,219 +49,6 @@ jobs:
         haxelib git hscript-improved https://github.com/YoshiCrafter29/hscript-improved --quiet || \
         haxelib install hscript --quiet
         
-        # FlxAnimate - try multiple sources
-        echo "Installing flxanimate..."
-        haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate --quiet || \
-        haxelib install flxanimate --quiet
-        
-        # Additional libraries that might be needed
-        haxelib install tjson --quiet || echo "tjson not available, skipping"
-        haxelib install hxcpp --silent || echo "hxcpp already installed"
-        
-        echo "All dependencies installed"
-        
-    - name: Setup iOS
-      run: |
-        haxelib run lime setup ios -y
-        
-    - name: Create project.xml
-      run: |
-        cat > project.xml << 'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <project>
-        	<app
-        		title="Friday Night Funkin' - Codename Engine" main="funkin.backend.system.Main"
-        		file="CodenameEngine" packageName="com.yoshman29.codenameengine"
-        		package="com.yoshman29.codenameengine"
-        		version="0.1.0-legacy" company="Yoshman29" />
-
-        	<app save-path="YoshiCrafter29/CodenameEngine" save-name="save-default" mod-saves="true" />
-        	<haxedef name="REGION" />
-        	<app preloader="flixel.system.FlxPreloader" />
-        	<set name="SWF_VERSION" value="11.8" />
-
-        	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" />
-        	<window if="html5" resizable="true" />
-        	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" vsync="false"/>
-        	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
-
-        	<set name="BUILD_DIR" value="export/debug" if="debug" />
-        	<set name="BUILD_DIR" value="export/release" unless="debug" />
-        	<source name="source" />
-        	<assets path='assets/mobile' if='mobile'/>
-
-        	<define name="PRELOAD_ALL" unless="web" />
-        	<define name="NO_PRELOAD_ALL" unless="PRELOAD_ALL"/>
-        	<library name="assets" preload="true" if="PRELOAD_ALL"/>
-        	<library name="assets" preload="false" if="NO_PRELOAD_ALL" />
-
-        	<assets path="assets/" rename="assets" exclude="*.ogg" if="web"/>
-        	<assets path="assets/" rename="assets" exclude="*.mp3" unless="web"/>
-        	<assets path='mods' rename='mods' embed='false'/>
-
-        	<!-- Build configuration -->
-        	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
-        	<haxedef name="FLX_NO_DEBUG" unless="debug" />
-        	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
-        	<haxedef name="MOD_SUPPORT" unless="web"/>
-        	
-        	<!-- Disable problematic features for iOS build -->
-        	<haxedef name="NO_PRECOMPILED_HEADERS" />
-        	
-        	<!-- Custom macros -->
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
-        	
-        	<!-- Compilation flags -->
-        	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
-        
-        	<!-- App icons -->
-        	<icon path="art/icon16.png" size='16'/>
-        	<icon path="art/icon32.png" size='32'/>
-        	<icon path="art/icon64.png" size='64'/>
-        	<icon path="art/iconOG.png" />
-
-        	<!-- Platform defines -->
-        	<define name="DISCORD_RPC" if="desktop"/>
-        	<define name="GITHUB_API" unless="web || hl"/>
-        	<define name="COMPILE_ALL_CLASSES" />
-        	<define name="CUSTOM_CLASSES" />
-        	<define name="VIDEO_CUTSCENES" if="desktop || android" />
-
-        	<!-- Required libraries -->
-        	<haxelib name="flixel" />
-        	<haxelib name="flixel-addons" />
-        	<haxelib name="flixel-ui" />
-        	<haxelib name="format" />
-        	<haxelib name="flxanimate" />
-        	<haxelib name="hscript-improved" />
-        	<haxelib name="markdown" />
-
-        	<!-- Platform targets -->
-        	<android target-sdk-version="34" />
-        	<android min-sdk-version="19" />
-        	<ios deployment="12.0" />
-        </project>
-        EOF
-        echo "Created project.xml successfully"
-        
-    - name: Install Additional Libraries
-      run: |
-        echo "All libraries installed successfully"
-        haxelib list
-        
-    - name: Check Source Code Structure
-      run: |
-        echo "=== Checking source directory structure ==="
-        if [ -d "source" ]; then
-          echo "Source directory found"
-          find source -name "*.hx" -type f | head -10
-        else
-          echo "ERROR: No source directory found!"
-          echo "Available directories:"
-          ls -la
-          exit 1
-        fi
-        
-        echo "=== Checking for required assets ==="
-        if [ -d "assets" ]; then
-          echo "Assets directory found"
-        else
-          echo "WARNING: No assets directory found"
-        fi
-        
-    - name: Configure Xcode for Unsigned Build
-      run: |
-        # Set up a temporary team ID to bypass signing requirement during build
-        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-        
-    - name: Build iOS (Unsigned)
-      run: |
-        if [ -f "project.xml" ]; then
-          echo "Found project.xml, building unsigned iOS app..."
-          # Build for device without signing
-          haxelib run lime build project.xml ios -release -nosign
-        elif [ -f "Project.xml" ]; then
-          echo "Found Project.xml, building unsigned iOS app..."
-          haxelib run lime build Project.xml ios -release -nosign
-        else
-          echo "No project file found!"
-          exit 1
-        fi
-        
-    - name: Create Unsigned IPA
-      run: |
-        echo "Creating unsigned IPA..."
-        cd export/release/ios/build/Release-iphoneos/
-        
-        # Create Payload directory structure
-        mkdir -p Payload
-        
-        # Copy the .app bundle to Payload
-        cp -r *.app Payload/
-        
-        # Create the IPA
-        zip -r CodenameEngine-unsigned.ipa Payload/
-        
-        echo "Unsigned IPA created successfully"
-        ls -la *.ipa
-        
-    - name: Upload Unsigned IPA
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-unsigned-ipa
-        path: export/release/ios/build/Release-iphoneos/*.ipa
-        if-no-files-found: warnname: Build iOS App
-
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
-
-jobs:
-  build-ios:
-    runs-on: macos-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Haxe
-      run: |
-        brew install haxe
-        
-    - name: Setup Haxelib
-      run: |
-        mkdir -p ~/haxelib
-        haxelib setup ~/haxelib
-        
-    - name: Install Core Libraries
-      run: |
-        haxelib install lime --quiet
-        haxelib install openfl 9.2.2 --quiet
-        haxelib run lime setup -y
-        
-    - name: Install Custom CNE Libraries (Priority Order)
-      run: |
-        # Install CNE custom versions first to avoid conflicts
-        haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
-        haxelib git flixel-addons https://github.com/CodenameCrew/cne-flixel-addons --quiet
-        haxelib git flixel-ui https://github.com/CodenameCrew/cne-flixel-ui --quiet || haxelib install flixel-ui --quiet
-        
-    - name: Install Additional Dependencies
-      run: |
-        # Core dependencies
-        haxelib install format --quiet
-        haxelib install markdown --quiet
-        
-        # Try CNE-specific hscript-improved version first
-        echo "Installing hscript-improved..."
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet || \
-        haxelib git hscript-improved https://github.com/YoshiCrafter29/hscript-improved --quiet || \
-        haxelib install hscript --quiet
-        
         # FlxAnimate - try specific working versions
         echo "Installing flxanimate..."
         # Try the original FNF version that has FlxSymbolAnimation
@@ -360,12 +147,12 @@ jobs:
         EOF
         echo "Created project.xml successfully"
         
-    - name: Install Additional Libraries
+    - name: List Installed Libraries
       run: |
-        echo "All libraries installed successfully"
+        echo "=== Installed libraries ==="
         haxelib list
         
-    - name: Check Source Code Structure and Apply Fixes
+    - name: Check Source Code Structure
       run: |
         echo "=== Checking source directory structure ==="
         if [ -d "source" ]; then
@@ -388,15 +175,9 @@ jobs:
         echo "=== Checking flxanimate installation ==="
         haxelib list | grep flxanimate || echo "flxanimate not found in haxelib list"
         
-        # Try to find and fix the FlxSymbolAnimation issue
-        if [ -f "source/funkin/backend/FunkinSprite.hx" ]; then
-          echo "=== Checking FunkinSprite.hx imports ==="
-          head -10 source/funkin/backend/FunkinSprite.hx | grep -E "import|using"
-        fi
-        
     - name: Configure Xcode for Unsigned Build
       run: |
-        # Set up a temporary team ID to bypass signing requirement during build
+        # Set up Xcode command line tools
         sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
         
     - name: Build iOS (Unsigned)
@@ -416,13 +197,32 @@ jobs:
     - name: Create Unsigned IPA
       run: |
         echo "Creating unsigned IPA..."
-        cd export/release/ios/build/Release-iphoneos/
+        export_path="export/release/ios/build/Release-iphoneos"
+        
+        if [ ! -d "$export_path" ]; then
+          echo "ERROR: Build output directory not found at $export_path"
+          echo "Available directories:"
+          find export -type d -name "*.app" 2>/dev/null || echo "No .app directories found"
+          exit 1
+        fi
+        
+        cd "$export_path"
+        
+        # Find the .app bundle
+        app_bundle=$(find . -name "*.app" | head -1)
+        if [ -z "$app_bundle" ]; then
+          echo "ERROR: No .app bundle found"
+          ls -la
+          exit 1
+        fi
+        
+        echo "Found app bundle: $app_bundle"
         
         # Create Payload directory structure
         mkdir -p Payload
         
         # Copy the .app bundle to Payload
-        cp -r *.app Payload/
+        cp -r "$app_bundle" Payload/
         
         # Create the IPA
         zip -r CodenameEngine-unsigned.ipa Payload/
@@ -435,13 +235,6 @@ jobs:
       with:
         name: ios-unsigned-ipa
         path: export/release/ios/build/Release-iphoneos/*.ipa
-        if-no-files-found: warn
-        
-    - name: Upload App Bundle (fallback)
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-app-bundle
-        path: export/release/ios/build/Release-iphoneos/*.app
         if-no-files-found: warn
         
     - name: Upload App Bundle (fallback)
