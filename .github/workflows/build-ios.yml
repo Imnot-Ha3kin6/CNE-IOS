@@ -189,7 +189,7 @@ jobs:
           
           # Add StringTools import if not present
           if ! grep -q "using StringTools" source/funkin/backend/scripting/HScript.hx; then
-            sed -i '' '1i\\
+            sed -i '' '1i\
 using StringTools;' source/funkin/backend/scripting/HScript.hx
           fi
           
