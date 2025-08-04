@@ -18,7 +18,7 @@ jobs:
     - name: Setup Haxe
       uses: krdlab/setup-haxe@v1
       with:
-        haxe-version: 4.3.4
+        haxe-version: 4.2.5
         
     - name: Install Haxe dependencies
       run: |
@@ -34,13 +34,21 @@ jobs:
       run: |
         haxelib run lime setup ios -y
         
-    - name: Build iOS
+    - name: Build iOS Simulator
       run: |
-        haxelib run lime build ios -release -simulator
+        export ARCHS="x86_64"
+        haxelib run lime build ios -simulator -release -Dlegacy
         
-    - name: Upload IPA
+    - name: Upload App
       uses: actions/upload-artifact@v4
       with:
         name: ios-app
-        path: export/ios/build/Release-iphoneos/*.ipa
+        path: export/ios/build/Release-iphonesimulator/*.app
         if-no-files-found: warn
+        
+    - name: Upload IPA (if exists)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-ipa
+        path: export/ios/build/Release-iphoneos/*.ipa
+        if-no-files-found: ignore
