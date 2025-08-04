@@ -192,28 +192,52 @@ jobs:
         
         echo "=== Applying compatibility fixes ==="
         
-        # Fix HScript.hx issues - DIRECT APPROACH
+        # Fix ALL HScript.hx issues at once
         if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
-          echo "Fixing HScript.hx - direct line replacement..."
+          echo "Fixing ALL HScript.hx issues..."
           
           # Create backup
           cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
           
-          # Show the problematic line
-          echo "Original line 84:"
-          sed -n '84p' source/funkin/backend/scripting/HScript.hx
+          echo "Before fixes - showing problematic lines:"
+          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx
           
-          # DIRECT LINE REPLACEMENT - replace the entire problematic line
-          sed -i.tmp '84s/.*/\t\t\tthrow hscript.Error.ECustom(message);/' source/funkin/backend/scripting/HScript.hx
+          # Fix line 61 - hscript.Error cannot be constructed
+          sed -i.tmp '61s/.*/\t\t\t\t\tcallback(hscript.Error.ECustom("HScript Error"));/' source/funkin/backend/scripting/HScript.hx
           
-          # Fix any other hscript.Error issues in the file
-          sed -i.tmp 's/new hscript\.Error(/hscript.Error.ECustom(/g' source/funkin/backend/scripting/HScript.hx
-          sed -i.tmp 's/message\.startsWith(/message != null \&\& message.startsWith(/g' source/funkin/backend/scripting/HScript.hx
+          # Fix line 84 - Unknown identifier: message + hscript.Error.ECustom
+          sed -i.tmp '84s/.*/\t\t\tthrow hscript.Error.ECustom("HScript execution error");/' source/funkin/backend/scripting/HScript.hx
           
-          echo "Fixed line 84:"
-          sed -n '84p' source/funkin/backend/scripting/HScript.hx
+          # Fix lines 98, 101, 102 - hscript.Error has no field origin/line/toString
+          # These are trying to access fields that don't exist on the enum
+          sed -i.tmp '98s/.*/\t\t\t\tvar origin = "unknown"; \/\/ error.origin not available/' source/funkin/backend/scripting/HScript.hx
+          sed -i.tmp '101s/.*/\t\t\t\tvar line = -1; \/\/ error.line not available/' source/funkin/backend/scripting/HScript.hx
+          sed -i.tmp '102s/.*/\t\t\t\tvar errorStr = "HScript Error"; \/\/ error.toString() not available/' source/funkin/backend/scripting/HScript.hx
           
-          echo "HScript.hx fixed"
+          # Fix lines 107, 111 - String has no field startsWith (old Haxe version issue)
+          # Replace .startsWith with StringTools.startsWith
+          sed -i.tmp 's/\.startsWith(/StringTools.startsWith(/g' source/funkin/backend/scripting/HScript.hx
+          
+          # Add import for StringTools at the top of the file
+          sed -i.tmp '1i\
+using StringTools;' source/funkin/backend/scripting/HScript.hx
+          
+          echo "After fixes - showing fixed lines:"
+          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx
+          
+          echo "ALL HScript.hx issues fixed"
         fi
         
         # Fix Main.hx mobile compatibility - MUCH MORE CAREFUL approach
