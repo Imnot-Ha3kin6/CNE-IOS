@@ -212,18 +212,38 @@ jobs:
           echo "Applied HScript.hx fixes"
         fi
         
-        # Fix Framerate codenameBuildField issues
+        # Fix Framerate codenameBuildField issues more carefully
         echo "Fixing Framerate.codenameBuildField issues..."
         
         # Character Editor fixes
         if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
-          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
+          # Look for the exact pattern and replace more carefully
+          sed -i.tmp 's/Framerate\.codenameBuildField;/null; \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
+          sed -i.tmp 's/Framerate\.codenameBuildField)/null) \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
+          sed -i.tmp 's/Framerate\.codenameBuildField,/null, \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
           echo "Fixed CharacterEditor.hx"
         fi
         
-        # Charter fixes  
+        # Charter fixes - be more specific about the patterns
         if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
-          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
+          # Create backup first
+          cp source/funkin/editors/charter/Charter.hx source/funkin/editors/charter/Charter.hx.backup
+          
+          # Replace with proper syntax preservation
+          sed -i.tmp 's/Framerate\.codenameBuildField;/null; \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
+          sed -i.tmp 's/Framerate\.codenameBuildField)/null) \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
+          sed -i.tmp 's/Framerate\.codenameBuildField,/null, \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
+          
+          # Check if we broke anything
+          if ! grep -q "null.*Framerate.codenameBuildField removed" source/funkin/editors/charter/Charter.hx; then
+            echo "Charter.hx replacement may have failed, trying alternative approach..."
+            # Restore backup and try a different approach
+            cp source/funkin/editors/charter/Charter.hx.backup source/funkin/editors/charter/Charter.hx
+            
+            # Just comment out the problematic lines instead of replacing
+            sed -i.tmp 's/.*Framerate\.codenameBuildField.*/\/\/ &/g' source/funkin/editors/charter/Charter.hx
+          fi
+          
           echo "Fixed Charter.hx"
         fi
         
@@ -231,15 +251,6 @@ jobs:
         flxanimate_path=$(haxelib path flxanimate | head -1)
         if [ -f "${flxanimate_path}flxanimate/animate/FlxSymbol.hx" ]; then
           echo "Found FlxSymbol - FlxSymbolAnimation might be defined within FlxSymbol.hx"
-          
-          # Check if we need to update the import in FunkinSprite.hx
-          if [ -f "source/funkin/backend/FunkinSprite.hx" ]; then
-            if grep -q "FlxSymbolAnimation" source/funkin/backend/FunkinSprite.hx; then
-              echo "Checking if FlxSymbolAnimation needs to be imported differently..."
-              # The class might be available as FlxSymbol.FlxSymbolAnimation or similar
-              # Let's just see what happens in the build - CNE flxanimate should have it
-            fi
-          fi
         fi
         
         echo "=== Compatibility fixes applied ==="
