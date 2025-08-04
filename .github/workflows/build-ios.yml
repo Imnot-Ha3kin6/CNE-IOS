@@ -1,4 +1,4 @@
-- name: "Install All Dependencies (from libraries.xml)"
+- name: Install All Dependencies (from libraries.xml)
       run: |
         # Core libraries with specific versions
         haxelib install openfl 9.2.2 --quiet
