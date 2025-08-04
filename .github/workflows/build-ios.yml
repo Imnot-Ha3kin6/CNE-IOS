@@ -14,13 +14,22 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Xcode
+    - name: Setup Xcode and Fix Make Path
       run: |
         # Ensure Xcode is properly set up
         sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
         
-    - name: Remove Haxe Setup
-      run: echo "Skipping Haxe setup - building iOS app without Haxe compilation"
+        # Find where make actually is
+        echo "Make locations:"
+        which make
+        ls -la /usr/bin/make
+        
+        # Create symlink in Xcode's expected location
+        sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
+        sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
+        
+        # Verify the symlink works
+        /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make --version
         
     - name: Find Xcode Project
       run: |
@@ -50,23 +59,11 @@ jobs:
         echo "Available targets and schemes:"
         xcodebuild -project "$XCODEPROJ_PATH" -list
         
-        # Option 1: Try to build only the Build Haxe target first (as a stub)
-        echo "Attempting to build Build Haxe target first..."
+        # Try building without the Haxe dependency by using scheme instead of target
+        echo "Attempting to build using scheme (bypassing target dependencies)..."
         xcodebuild build \
           -project "$XCODEPROJ_PATH" \
-          -target "Build Haxe" \
-          -configuration Release \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          DEVELOPMENT_TEAM="" \
-          DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES || echo "Build Haxe target failed, continuing..."
-        
-        # Now build the main CodenameEngine target
-        echo "Building CodenameEngine target..."
-        xcodebuild build \
-          -project "$XCODEPROJ_PATH" \
-          -target "CodenameEngine" \
+          -scheme "CodenameEngine" \
           -configuration Release \
           -destination "generic/platform=iOS" \
           CODE_SIGN_IDENTITY="" \
@@ -76,7 +73,37 @@ jobs:
           ARCHS="arm64" \
           VALID_ARCHS="arm64" \
           DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES \
-          -allowProvisioningUpdates
+          -allowProvisioningUpdates || {
+          
+          echo "Scheme build failed, trying target-based build..."
+          # Option 1: Try to build only the Build Haxe target first (as a stub)
+          echo "Attempting to build Build Haxe target first..."
+          xcodebuild build \
+            -project "$XCODEPROJ_PATH" \
+            -target "Build Haxe" \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES || echo "Build Haxe target failed, continuing..."
+          
+          # Now build the main CodenameEngine target
+          echo "Building CodenameEngine target..."
+          xcodebuild build \
+            -project "$XCODEPROJ_PATH" \
+            -target "CodenameEngine" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            ARCHS="arm64" \
+            VALID_ARCHS="arm64" \
+            DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES \
+            -allowProvisioningUpdates
+        }
         
         # Find the built app
         built_app=$(find . -name "CodenameEngine.app" -o -name "*.app" | head -1)
