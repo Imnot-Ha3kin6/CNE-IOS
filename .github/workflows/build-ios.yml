@@ -130,23 +130,23 @@ jobs:
       run: |
         # Create export options plist
         cat > build/ExportOptions.plist << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>development</string>
-    <key>compileBitcode</key>
-    <false/>
-    <key>signingStyle</key>
-    <string>manual</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>thinning</key>
-    <string>&lt;none&gt;</string>
-</dict>
-</plist>
-EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>thinning</key>
+            <string>&lt;none&gt;</string>
+        </dict>
+        </plist>
+        EOF
         
         # Export the archive to IPA
         xcodebuild -exportArchive \
@@ -190,10 +190,16 @@ EOF
       uses: actions/upload-artifact@v4
       with:
         name: ios-ipa
-        path: |
-          build/export/*.ipa
-          build/manual_export/*.ipa
+        path: build/export/*.ipa
         if-no-files-found: warn
+    
+    - name: Upload Manual IPA (if created)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-ipa-manual
+        path: build/manual_export/*.ipa
+        if-no-files-found: ignore
     
     # 12. Upload build logs for debugging
     - name: Upload Build Logs
@@ -201,7 +207,5 @@ EOF
       uses: actions/upload-artifact@v4
       with:
         name: build-logs
-        path: |
-          ~/Library/Developer/Xcode/DerivedData/**/Logs/**
-          build/
+        path: build/
         if-no-files-found: ignore
