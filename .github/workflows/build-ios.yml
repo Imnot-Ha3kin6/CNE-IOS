@@ -112,6 +112,7 @@ jobs:
         	<haxedef name="NO_PRECOMPILED_HEADERS" />
         	<haxedef name="HXCPP_SMART_STRINGS" />
         	<haxedef name="mobile" if="ios" />
+        	<haxedef name="ios" if="ios" />
         	
         	<!-- Custom macros -->
         	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
@@ -201,9 +202,6 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
           sed -i '' 's/error\.line/-1/g' source/funkin/backend/scripting/HScript.hx
           sed -i '' 's/error\.toString()/"HScript Error"/g' source/funkin/backend/scripting/HScript.hx
           
-          # Fix String.startsWith - use StringTools.startsWith for older Haxe versions
-          sed -i '' 's/\.startsWith(/StringTools.startsWith(/g' source/funkin/backend/scripting/HScript.hx
-          
           echo "HScript.hx fixes applied"
         fi
         
@@ -216,38 +214,36 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
           sed -i '' 's/FlxG\.mouse\.visible = false;/#if !mobile FlxG.mouse.visible = false; #end/g' source/funkin/backend/system/Main.hx
           sed -i '' 's/FlxG\.mouse\.visible = true;/#if !mobile FlxG.mouse.visible = true; #end/g' source/funkin/backend/system/Main.hx
           
-          # Fix mouse conditional checks
-          sed -i '' 's/if (FlxG\.mouse\./if (#if !mobile FlxG.mouse. #else false #end \&\&/g' source/funkin/backend/system/Main.hx
-          
           echo "Main.hx mobile fixes applied"
         fi
         
         # Fix Framerate.codenameBuildField issues
         echo "Fixing Framerate.codenameBuildField references..."
         
-        # Character Editor
         if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
           cp source/funkin/editors/character/CharacterEditor.hx source/funkin/editors/character/CharacterEditor.hx.backup
           sed -i '' 's/Framerate\.codenameBuildField/null \/\* codenameBuildField not available \*\//g' source/funkin/editors/character/CharacterEditor.hx
           echo "Fixed CharacterEditor.hx"
         fi
         
-        # Charter
         if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
           cp source/funkin/editors/charter/Charter.hx source/funkin/editors/charter/Charter.hx.backup
           sed -i '' 's/Framerate\.codenameBuildField/null \/\* codenameBuildField not available \*\//g' source/funkin/editors/charter/Charter.hx
           echo "Fixed Charter.hx"
         fi
         
-        # Fix any FlxSymbolAnimation missing class issues
+        # Fix StringTools usage for better compatibility
+        echo "Applying StringTools compatibility fixes..."
+        find source -name "*.hx" -exec sed -i '' 's/\.startsWith(/StringTools.startsWith(/g' {} + 2>/dev/null || true
+        find source -name "*.hx" -exec sed -i '' 's/\.endsWith(/StringTools.endsWith(/g' {} + 2>/dev/null || true
+        
+        # Fix FlxSymbolAnimation issues
         echo "Checking for FlxSymbolAnimation compatibility..."
         if grep -r "FlxSymbolAnimation" source/ > /dev/null 2>&1; then
           echo "Found FlxSymbolAnimation references - verifying flxanimate installation..."
-          flxanimate_path=$(haxelib path flxanimate | head -1)
-          if [ ! -f "${flxanimate_path}flxanimate/animate/FlxSymbolAnimation.hx" ]; then
-            echo "WARNING: FlxSymbolAnimation not found in flxanimate library"
-            echo "Creating compatibility stub..."
-            mkdir -p source/flxanimate/animate
+          # Create compatibility stub if needed
+          mkdir -p source/flxanimate/animate
+          if [ ! -f "source/flxanimate/animate/FlxSymbolAnimation.hx" ]; then
             cat > source/flxanimate/animate/FlxSymbolAnimation.hx << 'HAXE_EOF'
 package flxanimate.animate;
 
@@ -262,7 +258,7 @@ HAXE_EOF
           fi
         fi
         
-        # Add mobile-specific conditional compilation
+        # Add mobile-specific conditional compilation fixes
         echo "Adding mobile conditional compilation fixes..."
         find source -name "*.hx" -exec sed -i '' 's/#if desktop/#if (desktop \&\& !mobile)/g' {} + 2>/dev/null || true
         
@@ -272,9 +268,9 @@ HAXE_EOF
       run: |
         echo "=== Performing syntax validation ==="
         
-        # Check for common syntax errors in fixed files
         error_count=0
         
+        # Basic syntax checks
         if [ -f "source/funkin/backend/scripting/HScript.hx" ]; then
           echo "Validating HScript.hx..."
           if grep -n "::" source/funkin/backend/scripting/HScript.hx; then
@@ -309,13 +305,9 @@ HAXE_EOF
     - name: Build iOS (Unsigned)
       timeout-minutes: 45
       run: |
-        if [ -f "project.xml" ]; then
-          echo "Found project.xml, building unsigned iOS app..."
-          project_file="project.xml"
-        elif [ -f "Project.xml" ]; then
-          echo "Found Project.xml, building unsigned iOS app..."
-          project_file="Project.xml"
-        else
+        project_file="project.xml"
+        
+        if [ ! -f "$project_file" ]; then
           echo "No project file found!"
           exit 1
         fi
@@ -343,24 +335,20 @@ HAXE_EOF
           echo "=== SEARCHING FOR SPECIFIC ERRORS ==="
           
           # Look for Haxe compilation errors
-          if grep -n "Error:" build_output.log; then
-            echo "Found compilation errors above"
-          fi
+          echo "Compilation errors:"
+          grep -n "Error:" build_output.log || echo "No compilation errors found"
           
           # Look for syntax errors
-          if grep -A5 -B5 "Unexpected" build_output.log; then
-            echo "Found syntax errors above"
-          fi
+          echo "Syntax errors:"
+          grep -A5 -B5 "Unexpected" build_output.log || echo "No syntax errors found"
           
           # Look for missing class/field errors
-          if grep -A3 -B3 "has no field\|Unknown identifier\|Type not found" build_output.log; then
-            echo "Found missing field/type errors above"
-          fi
+          echo "Missing field/type errors:"
+          grep -A3 -B3 "has no field\|Unknown identifier\|Type not found" build_output.log || echo "No missing field errors found"
           
           # Look for iOS/Xcode specific errors
-          if grep -A3 -B3 "xcodebuild\|code signing\|provisioning" build_output.log; then
-            echo "Found iOS/Xcode errors above"
-          fi
+          echo "iOS/Xcode errors:"
+          grep -A3 -B3 "xcodebuild\|code signing\|provisioning" build_output.log || echo "No iOS/Xcode errors found"
           
           exit 1
         fi
@@ -418,12 +406,15 @@ HAXE_EOF
         echo "Unsigned IPA created successfully"
         ls -la *.ipa
         
+        # Move IPA to workspace root for easier artifact collection
+        mv CodenameEngine-unsigned.ipa "${GITHUB_WORKSPACE}/"
+        
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ios-build-artifacts
         path: |
-          export/**/Release-iphoneos/*.ipa
+          CodenameEngine-unsigned.ipa
           export/**/Release-iphoneos/*.app
         if-no-files-found: warn
         
