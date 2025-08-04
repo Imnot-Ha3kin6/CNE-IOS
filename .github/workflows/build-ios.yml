@@ -277,32 +277,54 @@ jobs:
         echo "Starting iOS build..."
         echo "Build started at: $(date)"
         
-        # Run the build with background process monitoring (macOS compatible)
-        haxelib run lime build "$project_file" ios -release -nosign -verbose &
-        BUILD_PID=$!
-        
-        # Wait for build to complete or timeout after 25 minutes
-        for i in {1..1500}; do
-          if ! kill -0 $BUILD_PID 2>/dev/null; then
-            wait $BUILD_PID
-            BUILD_EXIT_CODE=$?
-            break
+        # Run the build and capture all output
+        if ! haxelib run lime build "$project_file" ios -release -nosign -verbose 2>&1 | tee build_output.log; then
+          echo "Build failed at: $(date)"
+          echo ""
+          echo "=== BUILD FAILURE ANALYSIS ==="
+          
+          # Show the last 50 lines of build output to see the actual error
+          echo "Last 50 lines of build output:"
+          tail -50 build_output.log
+          
+          echo ""
+          echo "=== SEARCHING FOR HAXE ERRORS ==="
+          
+          # Look for common Haxe error patterns
+          if grep -i "error" build_output.log; then
+            echo "Found error messages above"
           fi
-          sleep 1
-        done
-        
-        # If we got here and process is still running, kill it
-        if kill -0 $BUILD_PID 2>/dev/null; then
-          echo "Build timed out after 25 minutes, terminating..."
-          kill -TERM $BUILD_PID 2>/dev/null
-          sleep 5
-          kill -KILL $BUILD_PID 2>/dev/null
-          exit 1
-        fi
-        
-        # Check build result
-        if [ ${BUILD_EXIT_CODE:-1} -ne 0 ]; then
-          echo "Build failed with exit code: ${BUILD_EXIT_CODE:-1}"
+          
+          if grep -i "characters.*:" build_output.log; then
+            echo "Found Haxe compilation errors above"
+          fi
+          
+          if grep -i "not found" build_output.log; then
+            echo "Found 'not found' errors above"
+          fi
+          
+          if grep -i "missing" build_output.log; then
+            echo "Found 'missing' errors above"
+          fi
+          
+          echo ""
+          echo "=== CHECKING FOR KNOWN ISSUES ==="
+          
+          # Check if it's still the FlxSymbolAnimation issue
+          if grep -q "FlxSymbolAnimation" build_output.log; then
+            echo "FlxSymbolAnimation error still present!"
+          fi
+          
+          # Check if it's the Framerate issue
+          if grep -q "codenameBuildField" build_output.log; then
+            echo "codenameBuildField error still present!"
+          fi
+          
+          # Check if it's the HScript issue
+          if grep -q "hscript\.Error" build_output.log; then
+            echo "hscript.Error constructor issue still present!"
+          fi
+          
           exit 1
         fi
         
