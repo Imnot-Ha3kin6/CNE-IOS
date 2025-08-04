@@ -1,4 +1,5 @@
 name: Build iOS App
+
 on:
   push:
     branches: [ main, master ]
@@ -9,162 +10,74 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    
+
     steps:
+    # 1. Checkout
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Setup Xcode and Fix Make Path
+
+    # 2. Select Xcode
+    - name: Select Xcode 15.4
+      run: sudo xcode-select --switch /Applications/Xcode_15.4.app
+
+    # 3. Stub Haxe (bypass Build Haxe)
+    - name: Stub Haxe
       run: |
-        # Ensure Xcode is properly set up
-        sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-        
-        # Find where make actually is
-        echo "Make locations:"
-        which make
-        ls -la /usr/bin/make
-        
-        # Create symlink in Xcode's expected location
-        sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
-        sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
-        
-        # Verify the symlink works
-        /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make --version
-        
+        echo '#!/bin/bash' > fake-haxe.sh
+        echo 'echo "Skipping Haxe build..."' >> fake-haxe.sh
+        chmod +x fake-haxe.sh
+        sudo mv /usr/local/bin/haxe /usr/local/bin/haxe.bak 2>/dev/null || true
+        sudo cp fake-haxe.sh /usr/local/bin/haxe
+
+    # 4. Find Xcode project
     - name: Find Xcode Project
       run: |
         xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
-        
         if [ -z "$xcodeproj_path" ]; then
           echo "ERROR: No .xcodeproj folder found!"
           ls -la
           exit 1
         fi
-        
         echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
-        
-    - name: List Project Info
-      run: |
-        echo "Project information:"
-        xcodebuild -project "$XCODEPROJ_PATH" -list
-        
-    - name: Build iOS App (Skip Haxe)
-      timeout-minutes: 30
+
+    # 5. Build and archive
+    - name: Archive iOS App
       run: |
         project_name=$(basename "$XCODEPROJ_PATH" .xcodeproj)
-        echo "Building project: $project_name"
-        
-        # List all available targets and schemes
-        echo "Available targets and schemes:"
-        xcodebuild -project "$XCODEPROJ_PATH" -list
-        
-        # Try building without the Haxe dependency by using scheme instead of target
-        echo "Attempting to build using scheme (bypassing target dependencies)..."
-        xcodebuild build \
+        echo "Archiving project: $project_name"
+        xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
           -scheme "CodenameEngine" \
           -configuration Release \
+          -archivePath build/CodenameEngine.xcarchive \
           -destination "generic/platform=iOS" \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
           DEVELOPMENT_TEAM="" \
           ARCHS="arm64" \
-          VALID_ARCHS="arm64" \
-          DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES \
-          -allowProvisioningUpdates || {
-          
-          echo "Scheme build failed, trying target-based build..."
-          # Option 1: Try to build only the Build Haxe target first (as a stub)
-          echo "Attempting to build Build Haxe target first..."
-          xcodebuild build \
-            -project "$XCODEPROJ_PATH" \
-            -target "Build Haxe" \
-            -configuration Release \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES || echo "Build Haxe target failed, continuing..."
-          
-          # Now build the main CodenameEngine target
-          echo "Building CodenameEngine target..."
-          xcodebuild build \
-            -project "$XCODEPROJ_PATH" \
-            -target "CodenameEngine" \
-            -configuration Release \
-            -destination "generic/platform=iOS" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            ARCHS="arm64" \
-            VALID_ARCHS="arm64" \
-            DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING=YES \
-            -allowProvisioningUpdates
-        }
-        
-        # Find the built app
-        built_app=$(find . -name "CodenameEngine.app" -o -name "*.app" | head -1)
-        
-        if [ -n "$built_app" ]; then
-          echo "Found built app: $built_app"
-          
-          # Create archive structure manually
-          mkdir -p build/archives/CodenameEngine.xcarchive/Products/Applications
-          cp -r "$built_app" build/archives/CodenameEngine.xcarchive/Products/Applications/
-          
-          # Create minimal Info.plist for archive
-          cat > build/archives/CodenameEngine.xcarchive/Info.plist << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>ArchiveVersion</key>
-            <integer>2</integer>
-            <key>CreationDate</key>
-            <date>$(date -u +%Y-%m-%dT%H:%M:%SZ)</date>
-            <key>Name</key>
-            <string>CodenameEngine</string>
-            <key>SchemeName</key>
-            <string>CodenameEngine</string>
-        </dict>
-        </plist>
-        EOF
-          
-          echo "ARCHIVE_PATH=build/archives/CodenameEngine.xcarchive" >> $GITHUB_ENV
-          echo "Archive created successfully"
-        else
-          echo "No built app found. Looking for build products..."
-          find . -name "*.app" -o -name "build" -type d
-          exit 1
-        fi
-        
+          ONLY_ACTIVE_ARCH=NO
+        echo "ARCHIVE_PATH=build/CodenameEngine.xcarchive" >> $GITHUB_ENV
+
+    # 6. Create unsigned IPA
     - name: Create IPA
       run: |
-        mkdir -p build/export
-        
-        app_path=$(find "$ARCHIVE_PATH" -name "*.app" | head -1)
-        
+        mkdir -p build/export/Payload
+        app_path=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" | head -1)
         if [ -z "$app_path" ]; then
           echo "No .app found in archive"
           find "$ARCHIVE_PATH" -type f
           exit 1
         fi
-        
-        echo "Found app: $app_path"
-        
-        mkdir -p build/export/Payload
         cp -r "$app_path" build/export/Payload/
-        
         cd build/export
-        zip -r CodenameEngine-unsigned.ipa Payload/
+        zip -r CodenameEngine-unsigned.ipa Payload
         cd ../..
-        
         echo "IPA created successfully"
         ls -la build/export/
-        
+
+    # 7. Upload IPA
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
