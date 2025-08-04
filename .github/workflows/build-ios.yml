@@ -49,12 +49,9 @@ jobs:
         haxelib git hscript-improved https://github.com/YoshiCrafter29/hscript-improved --quiet || \
         haxelib install hscript --quiet
         
-        # FlxAnimate - try specific working versions
+        # FlxAnimate - install CNE version with FlxSymbolAnimation
         echo "Installing flxanimate..."
-        # Try the original FNF version that has FlxSymbolAnimation
-        haxelib git flxanimate https://github.com/ShadowMario/flxanimate --quiet || \
-        haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate dev --quiet || \
-        haxelib install flxanimate 3.0.4 --quiet
+        haxelib git flxanimate https://github.com/CodenameCrew/cne-flxanimate --quiet
         
         # Additional libraries that might be needed
         haxelib install tjson --quiet || echo "tjson not available, skipping"
@@ -172,8 +169,17 @@ jobs:
           echo "WARNING: No assets directory found"
         fi
         
-        echo "=== Checking flxanimate installation ==="
+        echo "=== Verifying flxanimate installation ==="
         haxelib list | grep flxanimate || echo "flxanimate not found in haxelib list"
+        
+        # Verify FlxSymbolAnimation exists
+        flxanimate_path=$(haxelib path flxanimate | head -1)
+        if [ -f "${flxanimate_path}flxanimate/animate/FlxSymbolAnimation.hx" ]; then
+          echo "SUCCESS: FlxSymbolAnimation found in CNE flxanimate"
+        else
+          echo "WARNING: FlxSymbolAnimation not found at expected location"
+          find "$flxanimate_path" -name "*.hx" | grep -i symbol || echo "No symbol-related files found"
+        fi
         
     - name: Configure Xcode for Unsigned Build
       run: |
@@ -184,11 +190,10 @@ jobs:
       run: |
         if [ -f "project.xml" ]; then
           echo "Found project.xml, building unsigned iOS app..."
-          # Build for device without signing
-          haxelib run lime build project.xml ios -release -nosign
+          haxelib run lime build project.xml ios -release -nosign -verbose
         elif [ -f "Project.xml" ]; then
           echo "Found Project.xml, building unsigned iOS app..."
-          haxelib run lime build Project.xml ios -release -nosign
+          haxelib run lime build Project.xml ios -release -nosign -verbose
         else
           echo "No project file found!"
           exit 1
