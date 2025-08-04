@@ -250,17 +250,37 @@ jobs:
         sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
         
     - name: Build iOS (Unsigned)
+      timeout-minutes: 30
       run: |
         if [ -f "project.xml" ]; then
           echo "Found project.xml, building unsigned iOS app..."
-          haxelib run lime build project.xml ios -release -nosign -verbose
+          project_file="project.xml"
         elif [ -f "Project.xml" ]; then
           echo "Found Project.xml, building unsigned iOS app..."
-          haxelib run lime build Project.xml ios -release -nosign -verbose
+          project_file="Project.xml"
         else
           echo "No project file found!"
           exit 1
         fi
+        
+        echo "Starting iOS build with timeout protection..."
+        echo "Build started at: $(date)"
+        
+        # Run the build with timeout monitoring
+        timeout 25m haxelib run lime build "$project_file" ios -release -nosign -verbose || {
+          echo "Build timed out or failed at: $(date)"
+          echo "Checking build status..."
+          
+          # Check if partial build exists
+          if [ -d "export/release/ios/build" ]; then
+            echo "Partial build directory exists. Listing contents:"
+            find export/release/ios/build -name "*.app" -o -name "*.ipa" | head -5
+          fi
+          
+          exit 1
+        }
+        
+        echo "Build completed at: $(date)"
         
     - name: Create Unsigned IPA
       run: |
