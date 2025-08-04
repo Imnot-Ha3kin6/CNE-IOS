@@ -112,10 +112,6 @@ jobs:
         	<haxedef name="NO_PRECOMPILED_HEADERS" />
         	<haxedef name="HXCPP_SMART_STRINGS" />
         	
-        	<!-- iOS specific compatibility fixes -->
-        	<haxedef name="FLX_NO_MOUSE" if="mobile" />
-        	<haxedef name="FLX_NO_KEYBOARD" if="mobile" />
-        	
         	<!-- Custom macros -->
         	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
         	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
@@ -210,6 +206,22 @@ jobs:
           sed -i.tmp 's/new hscript\.Error/cast/g' source/funkin/backend/scripting/HScript.hx
           
           echo "Applied HScript.hx fixes"
+        fi
+        
+        # Fix Main.hx mobile compatibility
+        if [ -f "source/funkin/backend/system/Main.hx" ]; then
+          echo "Fixing Main.hx mobile compatibility..."
+          
+          # Create backup
+          cp source/funkin/backend/system/Main.hx source/funkin/backend/system/Main.hx.backup
+          
+          # Fix FlxG.mouse issue by adding null checks or mobile conditionals
+          sed -i.tmp 's/FlxG\.mouse\./FlxG.mouse != null ? FlxG.mouse. : null; \/\//g' source/funkin/backend/system/Main.hx
+          
+          # Alternative: wrap mouse access in mobile checks
+          sed -i.tmp 's/FlxG\.mouse/#if !mobile FlxG.mouse #else null #end/g' source/funkin/backend/system/Main.hx
+          
+          echo "Applied Main.hx mobile fixes"
         fi
         
         # Fix Framerate codenameBuildField issues more carefully
