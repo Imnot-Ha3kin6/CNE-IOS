@@ -24,24 +24,33 @@ jobs:
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
         
-    - name: Install All Dependencies (from libraries.xml)
+    - name: Install Core Libraries
       run: |
-        # Core libraries with specific versions
+        haxelib install lime --quiet
         haxelib install openfl 9.2.2 --quiet
+        haxelib run lime setup -y
         
-        # Flixel (custom CNE versions)
+    - name: Install Custom CNE Libraries (Priority Order)
+      run: |
+        # Install CNE custom versions first to avoid conflicts
         haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
         haxelib git flixel-addons https://github.com/CodenameCrew/cne-flixel-addons --quiet
+        haxelib git flixel-ui https://github.com/CodenameCrew/cne-flixel-ui --quiet || haxelib install flixel-ui --quiet
         
-    - name: Install Haxe dependencies
+    - name: Install Additional Dependencies
       run: |
-        haxelib install lime
-        haxelib install openfl
-        haxelib install flixel
-        haxelib install flixel-ui
-        haxelib install flixel-addons
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
-        haxelib run lime setup -y
+        # Core dependencies
+        haxelib install format --quiet
+        haxelib install markdown --quiet
+        
+        # CNE specific libraries
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet
+        
+        # FlxAnimate - try CNE version first, fallback to official
+        haxelib git flxanimate https://github.com/CodenameCrew/flxanimate --quiet || haxelib install flxanimate --quiet
+        
+        # Android tools (may not be needed for iOS but keeping for compatibility)
+        haxelib install extension-androidtools --quiet || echo "Android tools not available, skipping"
         
     - name: Setup iOS
       run: |
@@ -98,11 +107,11 @@ jobs:
         	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
         	<haxedef name="MOD_SUPPORT" unless="web"/>
         	<define name="VIDEO_CUTSCENES" if="desktop || android" />
-        	<define name="FLX_NO_GENERIC" />
+        	<!-- Remove FLX_NO_GENERIC as it's not a valid flixel define -->
 
         	<haxelib name="flixel" />
         	<haxelib name="flixel-addons" />
-        	<haxelib name="flixel-ui" if="android" />
+        	<haxelib name="flixel-ui" />
         	<haxelib name="format" />
         	<haxelib name="flxanimate" />
         	<haxelib name="hscript-improved" />
@@ -120,11 +129,8 @@ jobs:
         
     - name: Install Additional Libraries
       run: |
-        haxelib install format
-        haxelib install flxanimate
-        haxelib install markdown
-        haxelib install extension-androidtools
-        echo "Additional libraries installed"
+        echo "All libraries installed successfully"
+        haxelib list
         
     - name: Debug Project Files
       run: |
