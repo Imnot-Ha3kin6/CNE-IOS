@@ -12,24 +12,26 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    # 1. Checkout
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 2. Select Xcode
     - name: Select Xcode 15.4
       run: sudo xcode-select --switch /Applications/Xcode_15.4.app
 
-    # 3. Stub Haxe (bypass Build Haxe)
+    - name: Symlink make
+      run: |
+        sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
+        sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
+
     - name: Stub Haxe
       run: |
         echo '#!/bin/bash' > fake-haxe.sh
-        echo 'echo "Skipping Haxe build..."' >> fake-haxe.sh
+        echo 'echo "Skipping actual Haxe build..."' >> fake-haxe.sh
         chmod +x fake-haxe.sh
+        sudo mkdir -p /usr/local/bin
         sudo mv /usr/local/bin/haxe /usr/local/bin/haxe.bak 2>/dev/null || true
         sudo cp fake-haxe.sh /usr/local/bin/haxe
 
-    # 4. Find Xcode project
     - name: Find Xcode Project
       run: |
         xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
@@ -41,11 +43,8 @@ jobs:
         echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
 
-    # 5. Build and archive
     - name: Archive iOS App
       run: |
-        project_name=$(basename "$XCODEPROJ_PATH" .xcodeproj)
-        echo "Archiving project: $project_name"
         xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
           -scheme "CodenameEngine" \
@@ -60,7 +59,6 @@ jobs:
           ONLY_ACTIVE_ARCH=NO
         echo "ARCHIVE_PATH=build/CodenameEngine.xcarchive" >> $GITHUB_ENV
 
-    # 6. Create unsigned IPA
     - name: Create IPA
       run: |
         mkdir -p build/export/Payload
@@ -74,10 +72,8 @@ jobs:
         cd build/export
         zip -r CodenameEngine-unsigned.ipa Payload
         cd ../..
-        echo "IPA created successfully"
         ls -la build/export/
 
-    # 7. Upload IPA
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
