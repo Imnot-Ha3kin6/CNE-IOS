@@ -1,166 +1,28 @@
-- name: Install All Dependencies (from libraries.xml)
-      run: |
-        # Core libraries with specific versions
-        haxelib install openfl 9.2.2 --quiet
-        haxelib git lime https://github.com/MaysLastPlays-Stuff/lime-h --quiet
-        
-        # Flixel (custom CNE versions)
-        haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
-        haxelib git flixel-addons https://github.com/CodenameCrew/cnename: Build iOS App
+<?xml version="1.0" encoding="UTF-8"?>
+<libraries>
+<!-- OpenFL & Lime (Required for Flixel) -->
+<lib name="openfl" version="9.2.2" />
+<git name="lime" url="https://github.com/MaysLastPlays-Stuff/lime-h" />
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
+<!-- Flixel -->
+<git name="flixel" url="https://github.com/CodenameCrew/cne-flixel" />
+<git name="flixel-addons" url="https://github.com/CodenameCrew/cne-flixel-addons" />
+<lib name="flixel-ui" version="2.6.1" />
 
-jobs:
-  build-ios:
-    runs-on: macos-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Haxe
-      run: |
-        brew install haxe
-        
-    - name: Setup Haxelib
-      run: |
-        mkdir -p ~/haxelib
-        haxelib setup ~/haxelib
-        
-    - name: Install Haxe dependencies
-      run: |
-        haxelib install lime
-        haxelib install openfl
-        haxelib install flixel
-        haxelib install flixel-ui
-        haxelib install flixel-addons
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
-        haxelib run lime setup -y
-        
-    - name: Setup iOS
-      run: |
-        haxelib run lime setup ios -y
-        
-    - name: Create project.xml
-      run: |
-        cat > project.xml << 'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <project>
-        	<app
-        		title="Friday Night Funkin' - Codename Engine" main="funkin.backend.system.Main"
-        		file="CodenameEngine" packageName="com.yoshman29.codenameengine"
-        		package="com.yoshman29.codenameengine"
-        		version="0.1.0-legacy" company="Yoshman29" />
-        
-        	<app save-path="YoshiCrafter29/CodenameEngine" save-name="save-default" mod-saves="true" />
-        	<haxedef name="REGION" />
-        	<app preloader="flixel.system.FlxPreloader" />
-        	<set name="SWF_VERSION" value="11.8" />
-        
-        	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" />
-        	<window if="html5" resizable="true" />
-        	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" vsync="false"/>
-        	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
-        
-        	<set name="BUILD_DIR" value="export/debug" if="debug" />
-        	<set name="BUILD_DIR" value="export/release" unless="debug" />
-        	<source name="source" />
-        	<assets path='assets/mobile' if='mobile'/>
-        
-        	<define name="PRELOAD_ALL" unless="web" />
-        	<define name="NO_PRELOAD_ALL" unless="PRELOAD_ALL"/>
-        	<library name="assets" preload="true" if="PRELOAD_ALL"/>
-        	<library name="assets" preload="false" if="NO_PRELOAD_ALL" />
-        
-        	<assets path="assets/" rename="assets" exclude="*.ogg" if="web"/>
-        	<assets path="assets/" rename="assets" exclude="*.mp3" unless="web"/>
-        	<assets path='mods' rename='mods' embed='false'/>
-        
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.NewHaxeWarning.warn()" />
-        	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
-        	<haxedef name="FLX_NO_DEBUG" unless="debug" />
-        
-        	<icon path="art/icon16.png" size='16'/>
-        	<icon path="art/icon32.png" size='32'/>
-        	<icon path="art/icon64.png" size='64'/>
-        	<icon path="art/iconOG.png" />
-        
-        	<define name="DISCORD_RPC" if="desktop"/>
-        	<define name="GITHUB_API" unless="web || hl"/>
-        	<define name="COMPILE_ALL_CLASSES" />
-        	<define name="CUSTOM_CLASSES" />
-        	<haxedef name="ALLOW_MULTITHREADING" unless="web || flash" />
-        	<haxedef name="MOD_SUPPORT" unless="web"/>
-        	<define name="VIDEO_CUTSCENES" if="desktop || android" />
-        	<define name="FLX_NO_GENERIC" />
-        
-        	<haxelib name="flixel" />
-        	<haxelib name="flixel-addons" />
-        	<haxelib name="flixel-ui" if="android" />
-        	<haxelib name="format" />
-        	<haxelib name="flxanimate" />
-        	<haxelib name="hscript-improved" />
-        	<haxelib name="markdown" />
-        
-        	<android target-sdk-version="34" />
-        	<android min-sdk-version="19" />
-        	<ios deployment="11.0" />
-        
-        	<haxeflag name="-dce" value="no" if="COMPILE_ALL_CLASSES" />
-        	<haxeflag name="--macro" value="funkin.backend.system.macros.Macros.initMacros()" />
-        </project>
-        EOF
-        echo "Created project.xml successfully"
-        
-    - name: Install Additional Libraries
-      run: |
-        haxelib install format
-        haxelib install flxanimate
-        haxelib install markdown
-        haxelib install extension-androidtools
-        echo "Additional libraries installed"
-        
-    - name: Debug Project Files
-      run: |
-        echo "=== Current Directory ==="
-        pwd
-        echo "=== All Files ==="
-        ls -la
-        echo "=== XML Files ==="
-        find . -name "*.xml" -type f
-        echo "=== Project.xml Content ==="
-        cat Project.xml || echo "Cannot read Project.xml"
-        echo "=== File Permissions ==="
-        ls -la Project.xml || echo "Project.xml not found"
-        
-    - name: Build iOS
-      run: |
-        if [ -f "project.xml" ]; then
-          echo "Found project.xml, building..."
-          haxelib run lime build project.xml ios -release
-        elif [ -f "Project.xml" ]; then
-          echo "Found Project.xml, building..."
-          haxelib run lime build Project.xml ios -release
-        else
-          echo "No project file found!"
-          exit 1
-        fi
-        
-    - name: Upload IPA
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-app
-        path: export/ios/build/Release-iphoneos/*.ipa
-        if-no-files-found: warn
-        
-    - name: Upload Simulator App (fallback)
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-simulator-app
-        path: export/ios/build/Release-iphonesimulator/*.app
-        if-no-files-found: ignore
+<!-- Other Libraries -->
+<git name="hscript-improved" url="https://github.com/CodenameCrew/hscript-improved" ref="custom-classes" />
+<git name="flxanimate" url="https://github.com/CodenameCrew/cne-flxanimate" />
+<lib name="hxvlc" version="1.9.3" skipDeps="true" />
+
+<!-- Documentation and other features -->
+<git name="away3d" url="https://github.com/CodenameCrew/away3d" />
+<!-- <lib name="dox" /> -->
+<lib name="format" />
+<lib name="markdown" />
+<lib name="nape-haxe4" />
+
+<!-- Mobile Libraries -->
+<git name="hxcpp" url="https://github.com/CodenameCrew/cne-hxcpp" />
+<git name="extension-androidtools" url="https://github.com/MAJigsaw77/extension-androidtools" skipDeps="true" unless="ios"/>
+
+</libraries>
