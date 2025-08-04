@@ -1,5 +1,4 @@
 name: Build iOS App
-
 on:
   push:
     branches: [ main, master ]
@@ -15,6 +14,26 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install Command Line Tools
+      run: |
+        # Install Xcode command line tools if not present
+        xcode-select --install || true
+        sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+        
+        # Install make and other build essentials
+        brew install make
+        
+    - name: Setup Haxe (if needed)
+      run: |
+        # Install Haxe if your project requires it
+        if [ -f "project.xml" ] || [ -f "Project.xml" ]; then
+          brew install haxe
+          haxelib setup /usr/local/lib/haxe/lib
+          # Add any specific haxelib dependencies your project needs
+          # haxelib install lime
+          # haxelib install openfl
+        fi
+        
     - name: Find Xcode Project
       run: |
         xcodeproj_path=$(find . -name "*.xcodeproj" -type d | head -1)
@@ -27,14 +46,14 @@ jobs:
         
         echo "Found Xcode project: $xcodeproj_path"
         echo "XCODEPROJ_PATH=$xcodeproj_path" >> $GITHUB_ENV
-
+        
     - name: List Project Info
       run: |
         echo "Project information:"
         xcodebuild -project "$XCODEPROJ_PATH" -list
-
-    - name: Build Main Target Only
-      timeout-minutes: 30
+        
+    - name: Build with Haxe Support
+      timeout-minutes: 45
       run: |
         project_name=$(basename "$XCODEPROJ_PATH" .xcodeproj)
         echo "Building target: $project_name"
@@ -42,7 +61,10 @@ jobs:
         mkdir -p build/archives
         archive_path="build/archives/${project_name}.xcarchive"
         
-        # Build only the main target, skip Build Haxe
+        # Set up environment for make
+        export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+        
+        # Build with proper environment
         xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
           -scheme "$project_name" \
@@ -53,8 +75,9 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
           DEVELOPMENT_TEAM="" \
-          -skipUnavailableActions \
-          -allowProvisioningUpdates
+          -allowProvisioningUpdates \
+          OTHER_CFLAGS="-DRELEASE" \
+          GCC_PREPROCESSOR_DEFINITIONS="RELEASE=1"
         
         echo "ARCHIVE_PATH=$archive_path" >> $GITHUB_ENV
         
@@ -65,7 +88,7 @@ jobs:
           echo "Archive creation failed"
           exit 1
         fi
-
+        
     - name: Create IPA
       run: |
         mkdir -p build/export
@@ -74,6 +97,7 @@ jobs:
         
         if [ -z "$app_path" ]; then
           echo "No .app found in archive"
+          find "$ARCHIVE_PATH" -type f
           exit 1
         fi
         
@@ -87,7 +111,8 @@ jobs:
         cd ../..
         
         echo "IPA created successfully"
-
+        ls -la build/export/
+        
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
