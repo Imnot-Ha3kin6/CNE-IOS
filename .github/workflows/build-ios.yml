@@ -2,7 +2,6 @@
       run: |
         # Core libraries with specific versions
         haxelib install openfl 9.2.2 --quiet
-        haxelib git lime https://github.com/MaysLastPlays-Stuff/lime-h --quiet
         
         # Flixel (custom CNE versions)
         haxelib git flixel https://github.com/CodenameCrew/cne-flixel --quiet
