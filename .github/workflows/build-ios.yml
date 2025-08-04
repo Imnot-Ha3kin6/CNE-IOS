@@ -19,45 +19,29 @@ jobs:
       run: |
         echo "Installing required build tools..."
         
-        # Check if make is available
-        if ! which make; then
-          echo "Installing make and build essentials..."
-          
-          # Install Xcode command line tools if not already installed
-          if ! xcode-select -p >/dev/null 2>&1; then
-            echo "Installing Xcode command line tools..."
-            xcode-select --install
-            # Wait for installation to complete
-            until xcode-select -p >/dev/null 2>&1; do
-              echo "Waiting for Xcode command line tools installation..."
-              sleep 10
-            done
-          fi
-          
-          # Create symlink if make exists but is not in expected location
-          if [ -f "/usr/bin/make" ]; then
-            echo "Make found at /usr/bin/make"
-            sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Could not create symlink"
-          elif [ -f "/bin/make" ]; then
-            echo "Make found at /bin/make"  
-            sudo ln -sf /bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Could not create symlink"
-          else
-            echo "Installing make via brew..."
-            if command -v brew >/dev/null 2>&1; then
-              brew install make
-              # Create symlink to expected location
-              sudo ln -sf $(which make) /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Could not create symlink"
-            fi
-          fi
-        else
-          echo "Make is already available at: $(which make)"
-          # Ensure it's accessible from Xcode's expected location
-          sudo ln -sf $(which make) /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Could not create symlink"
+        # Install Xcode command line tools if not already installed
+        if ! xcode-select -p >/dev/null 2>&1; then
+          echo "Installing Xcode command line tools..."
+          xcode-select --install
+          sleep 30
         fi
         
-        # Verify the final setup
-        echo "Final verification:"
-        ls -la /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Make not found at expected Xcode location"
+        # Find make and create symlink to where Xcode expects it
+        echo "Setting up make for Xcode..."
+        sudo mkdir -p /Applications/Xcode_15.4.app/Contents/Developer/usr/bin
+        
+        if [ -f "/usr/bin/make" ]; then
+          echo "Using system make from /usr/bin/make"
+          sudo ln -sf /usr/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
+        else
+          echo "Installing make via homebrew..."
+          brew install make
+          sudo ln -sf /opt/homebrew/bin/make /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
+        fi
+        
+        # Verify setup
+        ls -la /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make
+        /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make --version
       
     - name: Find Xcode Project
       run: |
@@ -100,21 +84,17 @@ jobs:
         archive_path="build/archives/${project_name}.xcarchive"
         
         echo "Getting available schemes..."
-        # Get the complete list output first
         list_output=$(xcodebuild -project "$XCODEPROJ_PATH" -list 2>/dev/null)
         echo "Full list output:"
         echo "$list_output"
         
-        # Extract schemes more carefully
         schemes=$(echo "$list_output" | sed -n '/Schemes:/,/^$/p' | grep -v "Schemes:" | grep -v "^$" | sed 's/^[[:space:]]*//' | grep -v "Build Configurations" | grep -v "If no build configuration")
         echo "Extracted schemes: $schemes"
         
-        # Try to find a scheme that matches the project name first
         if echo "$schemes" | grep -q "^$project_name$"; then
           scheme_name="$project_name"
           echo "Using project name scheme: $scheme_name"
         elif [ -n "$schemes" ]; then
-          # Get the first scheme that's not "Build" (which seems to be a build phase, not a scheme)
           scheme_name=$(echo "$schemes" | grep -v "^Build$" | head -1 | xargs)
           if [ -z "$scheme_name" ]; then
             scheme_name=$(echo "$schemes" | head -1 | xargs)
@@ -137,10 +117,9 @@ jobs:
           exit 1
         fi
         
-        # Try to work around the make dependency issue by skipping Build Haxe target
-        echo "Attempting to build only the main target to avoid Haxe build issues..."
-        
-        if ! xcodebuild archive \
+        # Build the archive
+        set +e
+        xcodebuild archive \
           -project "$XCODEPROJ_PATH" \
           -scheme "$scheme_name" \
           -configuration Release \
@@ -152,8 +131,12 @@ jobs:
           CODE_SIGNING_ALLOWED=NO \
           DEVELOPMENT_TEAM="" \
           -allowProvisioningUpdates \
-          2>&1 | tee build_output.log; then
-          
+          2>&1 | tee build_output.log
+        
+        build_result=$?
+        set -e
+        
+        if [ $build_result -ne 0 ]; then
           echo "Archive build failed at: $(date)"
           echo ""
           echo "=== BUILD FAILURE ANALYSIS ==="
@@ -176,9 +159,9 @@ jobs:
           if grep -q "No such file or directory" build_output.log; then
             echo "❌ Missing file issue detected"
             if grep -q "unable to spawn process.*make" build_output.log; then
-              echo "❌ Make command not found - installing build tools..."
-              # Try to install make if it's missing
+              echo "❌ Make command not found - checking installation..."
               which make || echo "Make is not available in the system PATH"
+              ls -la /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/make || echo "Make not found at Xcode location"
             fi
           fi
           
@@ -192,7 +175,6 @@ jobs:
           fi
           
           exit 1
-        fi
         fi
         
         echo "Archive created successfully at: $archive_path"
@@ -239,12 +221,17 @@ jobs:
         
         echo "Created ExportOptions.plist"
         
-        if ! xcodebuild -exportArchive \
+        set +e
+        xcodebuild -exportArchive \
           -archivePath "$ARCHIVE_PATH" \
           -exportPath build/export \
           -exportOptionsPlist build/export/ExportOptions.plist \
-          2>&1 | tee export_output.log; then
-          
+          2>&1 | tee export_output.log
+        
+        export_result=$?
+        set -e
+        
+        if [ $export_result -ne 0 ]; then
           echo "IPA export failed"
           echo "Export output:"
           cat export_output.log
