@@ -225,8 +225,19 @@ jobs:
           sed -i '' 's/\.startsWith(/StringTools.startsWith(/g' source/funkin/backend/scripting/HScript.hx
           
           # Add import for StringTools at the top of the file (after package declaration)
-          sed -i '' '1a\
+          # First, check if using StringTools; already exists
+          if ! grep -q "using StringTools" source/funkin/backend/scripting/HScript.hx; then
+            # Find the line with package declaration and add using StringTools after it
+            if grep -n "^package" source/funkin/backend/scripting/HScript.hx > /dev/null; then
+              package_line=$(grep -n "^package" source/funkin/backend/scripting/HScript.hx | head -1 | cut -d: -f1)
+              sed -i '' "${package_line}a\\
+using StringTools;" source/funkin/backend/scripting/HScript.hx
+            else
+              # If no package declaration found, add at the very top
+              sed -i '' '1i\\
 using StringTools;' source/funkin/backend/scripting/HScript.hx
+            fi
+          fi
           
           echo "After fixes - showing fixed lines:"
           echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
