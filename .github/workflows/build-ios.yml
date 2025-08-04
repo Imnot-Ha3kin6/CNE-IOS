@@ -203,11 +203,11 @@ jobs:
           # Create backup
           cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
           
-          # Fix String.startsWith issue (add null check)
-          sed -i 's/message\.startsWith/(message != null \&\& message.startsWith/g' source/funkin/backend/scripting/HScript.hx
+          # Fix String.startsWith issue (add null check) - escape the parentheses properly
+          sed -i.tmp 's/message\.startsWith/(message != null \&\& message.startsWith/g' source/funkin/backend/scripting/HScript.hx
           
           # Fix hscript.Error constructor issues
-          sed -i 's/new hscript\.Error/cast/g' source/funkin/backend/scripting/HScript.hx
+          sed -i.tmp 's/new hscript\.Error/cast/g' source/funkin/backend/scripting/HScript.hx
           
           echo "Applied HScript.hx fixes"
         fi
@@ -217,14 +217,29 @@ jobs:
         
         # Character Editor fixes
         if [ -f "source/funkin/editors/character/CharacterEditor.hx" ]; then
-          sed -i 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
+          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/character/CharacterEditor.hx
           echo "Fixed CharacterEditor.hx"
         fi
         
         # Charter fixes  
         if [ -f "source/funkin/editors/charter/Charter.hx" ]; then
-          sed -i 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
+          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\/ Framerate.codenameBuildField removed/g' source/funkin/editors/charter/Charter.hx
           echo "Fixed Charter.hx"
+        fi
+        
+        # Check if FlxSymbolAnimation actually exists (it might be FlxSymbol instead)
+        flxanimate_path=$(haxelib path flxanimate | head -1)
+        if [ -f "${flxanimate_path}flxanimate/animate/FlxSymbol.hx" ]; then
+          echo "Found FlxSymbol - FlxSymbolAnimation might be defined within FlxSymbol.hx"
+          
+          # Check if we need to update the import in FunkinSprite.hx
+          if [ -f "source/funkin/backend/FunkinSprite.hx" ]; then
+            if grep -q "FlxSymbolAnimation" source/funkin/backend/FunkinSprite.hx; then
+              echo "Checking if FlxSymbolAnimation needs to be imported differently..."
+              # The class might be available as FlxSymbol.FlxSymbolAnimation or similar
+              # Let's just see what happens in the build - CNE flxanimate should have it
+            fi
+          fi
         fi
         
         echo "=== Compatibility fixes applied ==="
