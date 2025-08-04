@@ -200,42 +200,42 @@ jobs:
           cp source/funkin/backend/scripting/HScript.hx source/funkin/backend/scripting/HScript.hx.backup
           
           echo "Before fixes - showing problematic lines:"
-          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
           
           # Fix line 61 - hscript.Error cannot be constructed
-          sed -i.tmp '61s/.*/\t\t\t\t\tcallback(hscript.Error.ECustom("HScript Error"));/' source/funkin/backend/scripting/HScript.hx
+          sed -i '' '61s/.*/\t\t\t\t\tcallback(hscript.Error.ECustom("HScript Error"));/' source/funkin/backend/scripting/HScript.hx
           
           # Fix line 84 - Unknown identifier: message + hscript.Error.ECustom
-          sed -i.tmp '84s/.*/\t\t\tthrow hscript.Error.ECustom("HScript execution error");/' source/funkin/backend/scripting/HScript.hx
+          sed -i '' '84s/.*/\t\t\tthrow hscript.Error.ECustom("HScript execution error");/' source/funkin/backend/scripting/HScript.hx
           
           # Fix lines 98, 101, 102 - hscript.Error has no field origin/line/toString
           # These are trying to access fields that don't exist on the enum
-          sed -i.tmp '98s/.*/\t\t\t\tvar origin = "unknown"; \/\/ error.origin not available/' source/funkin/backend/scripting/HScript.hx
-          sed -i.tmp '101s/.*/\t\t\t\tvar line = -1; \/\/ error.line not available/' source/funkin/backend/scripting/HScript.hx
-          sed -i.tmp '102s/.*/\t\t\t\tvar errorStr = "HScript Error"; \/\/ error.toString() not available/' source/funkin/backend/scripting/HScript.hx
+          sed -i '' '98s/.*/\t\t\t\tvar origin = "unknown"; \/\/ error.origin not available/' source/funkin/backend/scripting/HScript.hx
+          sed -i '' '101s/.*/\t\t\t\tvar line = -1; \/\/ error.line not available/' source/funkin/backend/scripting/HScript.hx
+          sed -i '' '102s/.*/\t\t\t\tvar errorStr = "HScript Error"; \/\/ error.toString() not available/' source/funkin/backend/scripting/HScript.hx
           
           # Fix lines 107, 111 - String has no field startsWith (old Haxe version issue)
           # Replace .startsWith with StringTools.startsWith
-          sed -i.tmp 's/\.startsWith(/StringTools.startsWith(/g' source/funkin/backend/scripting/HScript.hx
+          sed -i '' 's/\.startsWith(/StringTools.startsWith(/g' source/funkin/backend/scripting/HScript.hx
           
-          # Add import for StringTools at the top of the file
-          sed -i.tmp '1i\
+          # Add import for StringTools at the top of the file (after package declaration)
+          sed -i '' '1a\
 using StringTools;' source/funkin/backend/scripting/HScript.hx
           
           echo "After fixes - showing fixed lines:"
-          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx
-          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx
+          echo "Line 61:" && sed -n '61p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 84:" && sed -n '84p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 98:" && sed -n '98p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 101:" && sed -n '101p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 102:" && sed -n '102p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 107:" && sed -n '107p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
+          echo "Line 111:" && sed -n '111p' source/funkin/backend/scripting/HScript.hx 2>/dev/null
           
           echo "ALL HScript.hx issues fixed"
         fi
@@ -249,7 +249,7 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
           
           # Show the problematic line first
           echo "Checking line 176 before fix:"
-          sed -n '176p' source/funkin/backend/system/Main.hx || echo "Line 176 not found"
+          sed -n '176p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Line 176 not found"
           
           # Instead of blanket replacement, use more targeted fixes
           # Look for specific patterns that might be problematic
@@ -257,21 +257,21 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
           # Fix FlxG.mouse access with proper conditional compilation
           # First, let's see what's actually on line 176
           echo "Content around line 176:"
-          sed -n '170,180p' source/funkin/backend/system/Main.hx || echo "Lines not found"
+          sed -n '170,180p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Lines not found"
           
           # Use a more surgical approach - only fix lines that actually have mouse issues
           # and preserve proper Haxe syntax
-          sed -i.tmp 's/FlxG\.mouse\.visible = false;/#if !mobile FlxG.mouse.visible = false; #end/g' source/funkin/backend/system/Main.hx
-          sed -i.tmp 's/FlxG\.mouse\.visible = true;/#if !mobile FlxG.mouse.visible = true; #end/g' source/funkin/backend/system/Main.hx
+          sed -i '' 's/FlxG\.mouse\.visible = false;/#if !mobile FlxG.mouse.visible = false; #end/g' source/funkin/backend/system/Main.hx
+          sed -i '' 's/FlxG\.mouse\.visible = true;/#if !mobile FlxG.mouse.visible = true; #end/g' source/funkin/backend/system/Main.hx
           
           # Fix any remaining mouse references that aren't assignments
-          sed -i.tmp 's/if (FlxG\.mouse\./if (#if !mobile FlxG.mouse. #else false #end \&\& /g' source/funkin/backend/system/Main.hx
+          sed -i '' 's/if (FlxG\.mouse\./if (#if !mobile FlxG.mouse. #else false #end \&\&/g' source/funkin/backend/system/Main.hx
           
           echo "Applied Main.hx mobile fixes"
           
           # Verify the fix didn't break syntax
           echo "Checking line 176 after fix:"
-          sed -n '176p' source/funkin/backend/system/Main.hx || echo "Line 176 not found"
+          sed -n '176p' source/funkin/backend/system/Main.hx 2>/dev/null || echo "Line 176 not found"
         fi
         
         # Fix Framerate codenameBuildField issues with better syntax preservation
@@ -282,7 +282,7 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
           cp source/funkin/editors/character/CharacterEditor.hx source/funkin/editors/character/CharacterEditor.hx.backup
           
           # More careful replacement that preserves syntax
-          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/character/CharacterEditor.hx
+          sed -i '' 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/character/CharacterEditor.hx
           
           echo "Fixed CharacterEditor.hx"
         fi
@@ -292,7 +292,7 @@ using StringTools;' source/funkin/backend/scripting/HScript.hx
           cp source/funkin/editors/charter/Charter.hx source/funkin/editors/charter/Charter.hx.backup
           
           # Replace with null and preserve syntax
-          sed -i.tmp 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/charter/Charter.hx
+          sed -i '' 's/Framerate\.codenameBuildField/null \/\* Framerate.codenameBuildField removed \*\//g' source/funkin/editors/charter/Charter.hx
           
           echo "Fixed Charter.hx"
         fi
