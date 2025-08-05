@@ -19,7 +19,8 @@ jobs:
       run: |
         curl -L https://github.com/HaxeFoundation/haxe/releases/download/3.4.7/haxe-3.4.7-osx.tar.gz -o haxe.tar.gz
         tar -xzf haxe.tar.gz
-        sudo mv haxe-3.4.7 /usr/local/haxe
+        sudo mkdir -p /usr/local/haxe
+        sudo mv haxe-3.4.7/* /usr/local/haxe/
         sudo ln -s /usr/local/haxe/haxe /usr/local/bin/haxe
         sudo ln -s /usr/local/haxe/haxelib /usr/local/bin/haxelib
         haxe -version
