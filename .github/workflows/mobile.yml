@@ -1,4 +1,4 @@
-name: Mobile iOSs
+name: Mobile iOS
 
 on:
   push:
