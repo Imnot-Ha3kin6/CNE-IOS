@@ -39,6 +39,7 @@ class CustomControlsState extends MusicBeatSubstate {
     public function new() {
         super();
         config = new Config();
+
         var bg:FlxSprite = new FlxSprite(-80).loadGraphic('assets/images/menuBGBlue.png');
         bg.scrollFactor.set(0, 0.18);
         bg.setGraphicSize(Std.int(bg.width * 1.1));
@@ -54,19 +55,19 @@ class CustomControlsState extends MusicBeatSubstate {
         _hb = new HitBox();
         _hb.visible = false;
 
-        exitButton = createButton(FlxG.width - 650, 25, 'exit', () -> close());
+        exitButton = createUIButton(FlxG.width - 650, 25, 'exit', () -> close());
         exitButton.resize(125, 50);
 
-        var saveButton = createButton(exitButton.x + exitButton.width + 25, 25, 'exit and save', () -> {
+        var saveButton = createUIButton(exitButton.x + exitButton.width + 25, 25, 'exit and save', () -> {
             save();
             close();
         });
         saveButton.resize(250, 50);
 
-        exportButton = createButton(FlxG.width - 150, 25, 'export', () -> savetoclipboard(_pad));
+        exportButton = createUIButton(FlxG.width - 150, 25, 'export', () -> savetoclipboard(_pad));
         exportButton.resize(125, 50);
 
-        importButton = createButton(exportButton.x, 100, 'import', () -> loadfromclipboard(_pad));
+        importButton = createUIButton(exportButton.x, 100, 'import', () -> loadfromclipboard(_pad));
         importButton.resize(125, 50);
 
         for (button in [exitButton, saveButton, exportButton, importButton]) add(button);
@@ -87,10 +88,12 @@ class CustomControlsState extends MusicBeatSubstate {
         changeSelection();
     }
 
-    function createButton(x:Float, y:Float, label:String, onClick:Void->Void):FlxButton {
-        var button = new FlxButton(x, y, label, onClick);
-        button.label.setFormat('VCR OSD Mono', 24, FlxColor.BLACK, 'center');
-        return button;
+    function createUIButton(x:Float, y:Float, text:String, onClick:Void->Void):FlxButton {
+        var btn = new FlxButton(x, y, text, onClick);
+        if (btn.label != null) {
+            btn.label.setFormat('VCR OSD Mono', 24, FlxColor.BLACK, 'center');
+        }
+        return btn;
     }
 
     function createText(x:Float, y:Float, text:String):FlxText {
