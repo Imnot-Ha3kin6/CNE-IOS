@@ -1,29 +1,29 @@
-name: Build iOS Appp
+name: Build iOS App
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch: # Manual trigger
 
 jobs:
   build-ios:
     runs-on: macos-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Haxe
       run: |
         brew install haxe
-        
+
     - name: Setup Haxelib
       run: |
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
-        
+
     - name: Install Haxe dependencies
       run: |
         haxelib install lime
@@ -33,23 +33,23 @@ jobs:
         haxelib install flixel-addons
         haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
         haxelib run lime setup -y
-	haxelib install away3d
-        
+        haxelib install away3d
+
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
-        
+
     - name: Build iOS
       run: |
         haxelib run lime build ios -release
-        
+
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: ios-app
         path: export/ios/build/Release-iphoneos/*.ipa
         if-no-files-found: warn
-        
+
     - name: Upload Simulator App (fallback)
       uses: actions/upload-artifact@v4
       with:
