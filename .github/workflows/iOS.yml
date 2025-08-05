@@ -1,5 +1,4 @@
 name: Build iOS App
-
 on:
   push:
     branches: [ main, master ]
@@ -10,59 +9,120 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Setup Haxe 3.4.7 (manual install)
+      with:
+        submodules: recursive # In case you have git submodules
+    
+    - name: Setup Haxe 3.4.7
       run: |
+        # Download and install Haxe 3.4.7
         curl -L https://github.com/HaxeFoundation/haxe/releases/download/3.4.7/haxe-3.4.7-osx.tar.gz -o haxe.tar.gz
         tar -xzf haxe.tar.gz
         sudo mkdir -p /usr/local/haxe
         sudo mv haxe-3.4.7/* /usr/local/haxe/
-        sudo ln -s /usr/local/haxe/haxe /usr/local/bin/haxe
-        sudo ln -s /usr/local/haxe/haxelib /usr/local/bin/haxelib
+        sudo ln -sf /usr/local/haxe/haxe /usr/local/bin/haxe
+        sudo ln -sf /usr/local/haxe/haxelib /usr/local/bin/haxelib
+        
+        # Verify installation
+        which haxe
         haxe -version
-
-    - name: Setup Haxelib
-      run: |
+        
+        # Setup haxelib directory
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
-
-    - name: Install Old Haxe Dependencies
+    
+    - name: Cache Haxelib Dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/haxelib
+        key: haxelib-${{ runner.os }}-${{ hashFiles('**/Project.xml') }}
+        restore-keys: |
+          haxelib-${{ runner.os }}-
+    
+    - name: Install Haxe Dependencies
       run: |
-        haxelib install lime 2.9.1
-        haxelib install openfl 3.6.1
-        haxelib install flixel 4.3.0
-        haxelib install flixel-ui 2.3.0
-        haxelib install flixel-addons 2.6.0
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
+        # Install dependencies in correct order
+        haxelib install lime 2.9.1 --quiet
+        haxelib install openfl 3.6.1 --quiet
+        haxelib install flixel 4.3.0 --quiet
+        haxelib install flixel-ui 2.3.0 --quiet
+        haxelib install flixel-addons 2.6.0 --quiet
+        haxelib install away3d 1.0.0 --quiet
+        haxelib install format 3.3.0 --quiet
+        haxelib install flxanimate 3.0.4 --quiet
+        haxelib install nape 2.0.20 --quiet
+        haxelib install markdown 1.0.0 --quiet
+        
+        # Install git dependencies
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet
+        
+        # Setup lime
         haxelib run lime setup -y
-        haxelib install away3d 1.0.0
-        haxelib install format 3.3.0
-        haxelib install flxanimate 3.0.4
-        haxelib install nape 2.0.20
-        haxelib install markdown 1.0.0
-
-    - name: Setup iOS
+        
+        # List installed libraries for debugging
+        haxelib list
+    
+    - name: Setup iOS Development Environment
       run: |
+        # Setup iOS tools
         haxelib run lime setup ios -y
-
-    - name: Build iOS (No Signing)
+        
+        # Verify Xcode installation
+        xcode-select --print-path
+        xcrun --show-sdk-path --sdk iphoneos
+        
+        # Accept Xcode license (if needed)
+        sudo xcodebuild -license accept || true
+    
+    - name: Build iOS App
       run: |
-        haxelib run lime build ios -release -nosign
-
-    - name: Upload IPA
+        # Clean previous builds
+        haxelib run lime clean ios
+        
+        # Build for iOS without code signing
+        haxelib run lime build ios -release -nosign -verbose
+      env:
+        # Ensure we're using the correct iOS SDK
+        DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+    
+    - name: List Build Output (Debug)
+      run: |
+        echo "Listing export directory structure:"
+        find export -type f -name "*.ipa" -o -name "*.app" | head -20
+        
+        echo "iOS build directory:"
+        ls -la export/ios/build/ || echo "Build directory not found"
+        
+        echo "Release directories:"
+        ls -la export/ios/build/Release-* || echo "Release directories not found"
+    
+    - name: Upload IPA (if exists)
       uses: actions/upload-artifact@v4
       with:
-        name: ios-app
-        path: export/ios/build/Release-iphoneos/*.ipa
+        name: ios-ipa
+        path: |
+          export/ios/build/Release-iphoneos/*.ipa
+          export/ios/*.ipa
         if-no-files-found: warn
-
-    - name: Upload Simulator App (fallback)
+    
+    - name: Upload iOS App Bundle
       uses: actions/upload-artifact@v4
       with:
-        name: ios-simulator-app
-        path: export/ios/build/Release-iphonesimulator/*.app
+        name: ios-app-bundle
+        path: |
+          export/ios/build/Release-iphoneos/*.app
+          export/ios/build/Release-iphonesimulator/*.app
+        if-no-files-found: warn
+    
+    - name: Upload Build Logs (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          export/ios/build/Logs/
+          ~/Library/Logs/
         if-no-files-found: ignore
