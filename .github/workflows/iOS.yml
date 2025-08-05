@@ -15,20 +15,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Haxe 3.4.7
+    - name: Setup Haxe
       run: |
-        brew uninstall --ignore-dependencies haxe || true
-        brew install haxe@3.4
-        brew link haxe@3.4 --force
+        brew install haxe
 
     - name: Setup Haxelib
       run: |
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
 
-    - name: Install Haxe dependencies (locked versions)
+    - name: Install Haxe dependencies
       run: |
-        haxelib install lime 2.9.1
+                haxelib install lime 2.9.1
         haxelib install openfl 3.6.1
         haxelib install flixel 4.3.0
         haxelib install flixel-ui 2.2.0
@@ -44,8 +42,6 @@ jobs:
         haxelib set flixel 4.3.0
         haxelib set flixel-ui 2.2.0
         haxelib set flixel-addons 2.6.0
-        haxelib run lime setup -y
-
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
