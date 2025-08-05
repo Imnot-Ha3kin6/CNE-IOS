@@ -26,6 +26,7 @@ jobs:
 
     - name: Install Haxe dependencies
       run: |
+         haxe -cp commandline -D analyzer-optimize --run Main setup -s
         haxelib install lime
         haxelib install openfl
         haxelib install flixel 
@@ -38,6 +39,7 @@ jobs:
         haxelib install flxanimate
         haxelib install nape-haxe4
         haxelib install markdown
+        haxelib install funkin-modchart
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
