@@ -24,9 +24,8 @@ jobs:
           haxe -cp commandline -D analyzer-optimize --run Main setup -s
           haxelib remove lime
           haxelib git lime https://github.com/moxie-coder/lime-8.2.2 --quiet
-haxelib remove flixel-addons
-haxelib git flixel-addons https://github.com/HaxeFlixel/flixel-addons
-
+          haxelib remove flixel-addons
+          haxelib git flixel-addons https://github.com/HaxeFlixel/flixel-addons
 
       - name: Compile
         run: haxelib run lime build ios -clean -nosign
