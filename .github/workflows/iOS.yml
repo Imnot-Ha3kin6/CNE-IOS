@@ -1,5 +1,4 @@
 name: iOS Build
-
 on:
   push:
     branches:
@@ -22,10 +21,11 @@ jobs:
           git reset --hard origin/${{ github.ref_name }}
           git clean -fd
 
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v4
-        with:
-          haxe-version: 4.3.4
+      - name: Setup Haxe (manual)
+        run: |
+          brew update
+          brew install haxe
+          haxe --version
 
       - name: Install Libraries
         run: |
@@ -34,7 +34,7 @@ jobs:
       - name: Verify library versions
         run: haxelib list
 
-      - name: Compile
+      - name: Compile iOS
         run: haxelib run lime build ios -clean -nosign
 
       - name: Create IPA
@@ -43,11 +43,10 @@ jobs:
           mkdir Payload
           mv *.app Payload
           zip -r CodenameEngine.ipa Payload
-          mv CodenameEngine.ipa ../../Release-iphoneos/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: CodenameEngine-iOS
-          path: export/release/ios/build/Release-iphoneos/CodenameEngine.ipa
+          path: export/release/ios/build/Release-iphoneos/*.ipa
           if-no-files-found: error
