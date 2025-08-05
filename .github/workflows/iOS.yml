@@ -34,6 +34,7 @@ jobs:
         haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
         haxelib run lime setup -y
         haxelib install away3d
+        haxelib install format
 
     - name: Setup iOS
       run: |
