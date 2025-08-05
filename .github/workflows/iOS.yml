@@ -30,20 +30,7 @@ jobs:
 
     - name: Install Haxe dependencies
       run: |
-        haxelib install lime
-        haxelib install openfl
-        haxelib install flixel
-        haxelib install flixel-ui
-        haxelib install flixel-addons
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
-        haxelib install away3d
-        haxelib install format
-        haxelib install flxanimate
-        haxelib install nape-haxe4
-        haxelib install markdown
-        haxelib install funkin-modchart
-        haxelib run lime setup -y
-
+        
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
