@@ -36,6 +36,7 @@ jobs:
         haxelib install away3d
         haxelib install format
         haxelib install flxanimate
+        haxelib install nape-haxe4
 
     - name: Setup iOS
       run: |
