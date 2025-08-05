@@ -37,7 +37,7 @@ jobs:
         haxelib install format
         haxelib install flxanimate
         haxelib install nape-haxe4
-
+        haxelib install markdown
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
