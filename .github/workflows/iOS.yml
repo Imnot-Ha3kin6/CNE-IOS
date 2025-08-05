@@ -1,24 +1,27 @@
 name: iOS Build
-
 on:
   push:
     branches: 
       - main
       - master
   workflow_dispatch:
-
 jobs:
   iOS:
     runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@main
-
+        with:
+          fetch-depth: 0
+      - name: Update all files
+        run: |
+          git fetch --all
+          git reset --hard origin/${{ github.ref_name }}
+          git clean -fd
       - name: Setup Haxe
         uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.4
-
       - name: Install Libraries
         run: |
           haxe -cp commandline -D analyzer-optimize --run Main setup -s
@@ -26,17 +29,17 @@ jobs:
           haxelib git lime https://github.com/moxie-coder/lime-8.2.2 --quiet
           haxelib remove flixel-addons
           haxelib git flixel-addons https://github.com/HaxeFlixel/flixel-addons
-
+      - name: Update library dependencies
+        run: |
+          haxelib update
       - name: Compile
         run: haxelib run lime build ios -clean -nosign
-
       - name: Create Ipa
         run: |
           cd export/release/ios/build/*-iphoneos
           mkdir Payload
           mv *.app Payload
           zip -r CodenameEngine.ipa Payload
-
       - name: Upload Artifact
         uses: actions/upload-artifact@main
         with:
