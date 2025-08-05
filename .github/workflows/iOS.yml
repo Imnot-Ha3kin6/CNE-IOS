@@ -1,6 +1,12 @@
 name: iOS Build
+
 on:
+  push:
+    branches: 
+      - main
+      - master
   workflow_dispatch:
+
 jobs:
   iOS:
     runs-on: macos-14
