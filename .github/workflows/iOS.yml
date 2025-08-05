@@ -15,12 +15,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Haxe 3.4.7
+    - name: Setup Haxe 3.4.7 (manual install)
       run: |
-        brew uninstall haxe || true
-        brew tap homebrew/cask-versions
-        brew install haxe@3.4
-        brew link haxe@3.4 --force
+        curl -L https://github.com/HaxeFoundation/haxe/releases/download/3.4.7/haxe-3.4.7-osx.tar.gz -o haxe.tar.gz
+        tar -xzf haxe.tar.gz
+        sudo mv haxe-3.4.7 /usr/local/haxe
+        sudo ln -s /usr/local/haxe/haxe /usr/local/bin/haxe
+        sudo ln -s /usr/local/haxe/haxelib /usr/local/bin/haxelib
         haxe -version
 
     - name: Setup Haxelib
@@ -28,7 +29,7 @@ jobs:
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
 
-    - name: Install OLD Haxe dependencies
+    - name: Install Old Haxe Dependencies
       run: |
         haxelib install lime 2.9.1
         haxelib install openfl 3.6.1
