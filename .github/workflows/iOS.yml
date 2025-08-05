@@ -26,22 +26,18 @@ jobs:
 
     - name: Install Haxe dependencies
       run: |
-                haxelib install lime 2.9.1
-        haxelib install openfl 3.6.1
-        haxelib install flixel 4.3.0
-        haxelib install flixel-ui 2.2.0
-        haxelib install flixel-addons 2.6.0
+        haxelib install lime
+        haxelib install openfl
+        haxelib install flixel 
+        haxelib install flixel-ui
+        haxelib install flixel-addons
         haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
-        haxelib install away3d 1.0.0
+        haxelib run lime setup -y
+        haxelib install away3d
         haxelib install format
-        haxelib install flxanimate 2.0.0
-        haxelib install nape 2.0.20
+        haxelib install flxanimate
+        haxelib install nape-haxe4
         haxelib install markdown
-        haxelib set lime 2.9.1
-        haxelib set openfl 3.6.1
-        haxelib set flixel 4.3.0
-        haxelib set flixel-ui 2.2.0
-        haxelib set flixel-addons 2.6.0
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
