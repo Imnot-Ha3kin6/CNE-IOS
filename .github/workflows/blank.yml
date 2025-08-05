@@ -2,7 +2,9 @@ name: Mobile iOS
 
 on:
   push:
-    branches: [ main, master ] # runs automatically when u push
+    branches:
+      - main
+      - master
 
 jobs:
   iOS:
@@ -12,14 +14,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: 4.2.5
+      - name: Setup Haxe (ARM-friendly)
+        run: |
+          brew update
+          brew install haxe
+          haxelib setup ~/haxelib
 
       - name: Install Libraries
         run: |
-          haxelib setup ~/haxelib
           haxelib git lime https://github.com/noctrox389/lime
 
           git clone https://github.com/CodenameCrew/hscript-improved
@@ -40,7 +42,6 @@ jobs:
         run: haxelib run lime build ios -final -clean
 
       - name: Upload Artifact
-        if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
           name: iOSBuild
