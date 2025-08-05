@@ -56,19 +56,22 @@ class CustomControlsState extends MusicBeatSubstate {
         _hb.visible = false;
 
         exitButton = createUIButton(FlxG.width - 650, 25, 'exit', () -> close());
-        exitButton.resize(125, 50);
+        exitButton.setGraphicSize(125, 50);
+	exitButton.updateHitbox();
+
 
         var saveButton = createUIButton(exitButton.x + exitButton.width + 25, 25, 'exit and save', () -> {
             save();
             close();
         });
-        saveButton.resize(250, 50);
-
+        saveButton.setGraphicSize(250, 50);
+	saveButton.updateHitbox();
         exportButton = createUIButton(FlxG.width - 150, 25, 'export', () -> savetoclipboard(_pad));
-        exportButton.resize(125, 50);
-
+        exportButton.setGraphicSize(125, 50);
+	exportButton.updateHitbox();
         importButton = createUIButton(exportButton.x, 100, 'import', () -> loadfromclipboard(_pad));
-        importButton.resize(125, 50);
+        importButton.setGraphicSize(125, 50);
+	importButton.updateHitbox();
 
         for (button in [exitButton, saveButton, exportButton, importButton]) add(button);
 
