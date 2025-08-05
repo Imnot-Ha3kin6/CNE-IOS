@@ -1,7 +1,6 @@
 package funkin.backend.utils.native;
 
 #if windows
-import funkin.backend.utils.NativeAPI.FileAttribute;
 import funkin.backend.utils.NativeAPI.MessageBoxIcon;
 @:buildXml('
 <target id="haxe">
@@ -13,7 +12,7 @@ import funkin.backend.utils.NativeAPI.MessageBoxIcon;
 </target>
 ')
 
-// majority is taken from Microsoft's doc
+// majority is taken from microsofts doc
 @:cppFileCode('
 #include "mmdeviceapi.h"
 #include "combaseapi.h"
@@ -114,7 +113,7 @@ class AudioFixClient : public IMMNotificationClient {
 AudioFixClient *curAudioFix;
 ')
 @:dox(hide)
-final class Windows {
+class Windows {
 
 	public static var __audioChangeCallback:Void->Void = function() {
 		trace("test");
@@ -132,58 +131,14 @@ final class Windows {
 		int darkMode = enable ? 1 : 0;
 
 		HWND window = FindWindowA(NULL, title.c_str());
-		// Look for child windows if top level is not found
+		// Look for child windows if top level aint found
 		if (window == NULL) window = FindWindowExA(GetActiveWindow(), NULL, NULL, title.c_str());
-		// If still not found, try to get the active window
-		if (window == NULL) window = GetActiveWindow();
-		if (window == NULL) return;
 
-		if (S_OK != DwmSetWindowAttribute(window, 19, &darkMode, sizeof(darkMode))) {
+		if (window != NULL && S_OK != DwmSetWindowAttribute(window, 19, &darkMode, sizeof(darkMode))) {
 			DwmSetWindowAttribute(window, 20, &darkMode, sizeof(darkMode));
 		}
-		UpdateWindow(window);
 	')
 	public static function setDarkMode(title:String, enable:Bool) {}
-
-	@:functionCode('
-	HWND window = FindWindowA(NULL, title.c_str());
-	if (window == NULL) window = FindWindowExA(GetActiveWindow(), NULL, NULL, title.c_str());
-	if (window == NULL) window = GetActiveWindow();
-	if (window == NULL) return;
-
-	COLORREF finalColor;
-	if(color[0] == -1 && color[1] == -1 && color[2] == -1 && color[3] == -1) { // bad fix, I know :sob:
-		finalColor = 0xFFFFFFFF; // Default border
-	} else if(color[3] == 0) {
-		finalColor = 0xFFFFFFFE; // No border (must have setBorder as true)
-	} else {
-		finalColor = RGB(color[0], color[1], color[2]); // Use your custom color
-	}
-
-	if(setHeader) DwmSetWindowAttribute(window, 35, &finalColor, sizeof(COLORREF));
-	if(setBorder) DwmSetWindowAttribute(window, 34, &finalColor, sizeof(COLORREF));
-
-	UpdateWindow(window);
-	')
-	public static function setWindowBorderColor(title:String, color:Array<Int>, setHeader:Bool = true, setBorder:Bool = true) {}
-
-	@:functionCode('
-	HWND window = FindWindowA(NULL, title.c_str());
-	if (window == NULL) window = FindWindowExA(GetActiveWindow(), NULL, NULL, title.c_str());
-	if (window == NULL) window = GetActiveWindow();
-	if (window == NULL) return;
-
-	COLORREF finalColor;
-	if(color[0] == -1 && color[1] == -1 && color[2] == -1 && color[3] == -1) { // bad fix, I know :sob:
-		finalColor = 0xFFFFFFFF; // Default border
-	} else {
-		finalColor = RGB(color[0], color[1], color[2]); // Use your custom color
-	}
-
-	DwmSetWindowAttribute(window, 36, &finalColor, sizeof(COLORREF));
-	UpdateWindow(window);
-	')
-	public static function setWindowTitleColor(title:String, color:Array<Int>) {}
 
 	@:functionCode('
 	// https://stackoverflow.com/questions/15543571/allocconsole-not-displaying-cout
@@ -196,22 +151,6 @@ final class Windows {
 	freopen("CONOUT$", "w", stderr);
 	')
 	public static function allocConsole() {
-	}
-
-	@:functionCode('
-		return GetFileAttributes(path);
-	')
-	public static function getFileAttributes(path:String):FileAttribute
-	{
-		return NORMAL;
-	}
-
-	@:functionCode('
-		return SetFileAttributes(path, attrib);
-	')
-	public static function setFileAttributes(path:String, attrib:FileAttribute):Int
-	{
-		return 0;
 	}
 
 

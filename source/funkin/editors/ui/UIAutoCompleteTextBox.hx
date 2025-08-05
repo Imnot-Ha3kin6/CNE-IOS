@@ -1,7 +1,7 @@
 package funkin.editors.ui;
 
-import lime.ui.KeyCode;
 import lime.ui.KeyModifier;
+import lime.ui.KeyCode;
 
 class UIAutoCompleteTextBox extends UITextBox {
 	public var suggestionText:UIText;
@@ -9,10 +9,10 @@ class UIAutoCompleteTextBox extends UITextBox {
 	public var suggestItems(default, set):Array<String> = [];
 	var suggestIndex = 0;
 
-	public function new(x:Float, y:Float, text:String = "", width:Int = 320, height:Int = 32, multiline:Bool = false, small:Bool = false) {
-		super(x, y, text, width, height, multiline, small);
+	public function new(x:Float, y:Float, text:String = "", width:Int = 320, height:Int = 32, multiline:Bool = false) {
+		super(x, y, text, width, height, multiline);
 
-		suggestionText = new UIText(0, 0, width, "", small ? 12 : 15);
+		suggestionText = new UIText(0, 0, width, "");
 		suggestionText.color = 0xFF888888;
 		suggestionText.visible = false;
 		members.insert(members.indexOf(label), suggestionText);
@@ -20,7 +20,11 @@ class UIAutoCompleteTextBox extends UITextBox {
 
 	public override function update(elapsed:Float) {
 		super.update(elapsed);
-		suggestionText.exists = selectable && focused;
+
+		var selected = selectable && focused;
+
+		suggestionText.exists = selected;
+
 		suggestionText.follow(label, 0, 0);
 	}
 
@@ -55,7 +59,6 @@ class UIAutoCompleteTextBox extends UITextBox {
 			var text = label.text;
 			_suggestions = [];
 			if(text.length > 0) {
-				// for(i in suggestItems) if(i.startsWith(text)) _suggestions.pushOnce(i);
 				for(i in suggestItems) if(!_suggestions.contains(i) && i.startsWith(text)) _suggestions.push(i);
 
 				// Clean up suggestions

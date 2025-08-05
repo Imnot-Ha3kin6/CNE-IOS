@@ -1,9 +1,9 @@
 package funkin.backend.utils;
 
-import flixel.text.FlxText;
 import flixel.util.FlxColor;
+import flixel.text.FlxText;
 
-final class MarkdownUtil {
+class MarkdownUtil {
 	public static function applyMarkdownText(text:FlxText, str:String) {
 		text.textField.htmlText = Markdown.markdownToHtml(prepareMarkdown(str));
 		var changes:Array<FlxTextFormatMarkerPair> = [

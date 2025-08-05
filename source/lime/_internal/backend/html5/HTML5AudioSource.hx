@@ -2,7 +2,6 @@ package lime._internal.backend.html5;
 
 import lime.math.Vector4;
 import lime.media.AudioSource;
-import lime.media.AudioManager;
 
 @:access(lime.media.AudioBuffer)
 class HTML5AudioSource
@@ -10,7 +9,7 @@ class HTML5AudioSource
 	private var completed:Bool;
 	private var gain:Float;
 	private var id:Int;
-	private var length:Null<Float>;
+	private var length:Float;
 	private var loops:Int;
 	private var parent:AudioSource;
 	private var playing:Bool;
@@ -25,9 +24,7 @@ class HTML5AudioSource
 		position = new Vector4();
 	}
 
-	public function dispose():Void {
-		stop();
-	}
+	public function dispose():Void {}
 
 	public function init():Void {}
 
@@ -101,9 +98,8 @@ class HTML5AudioSource
 		{
 			loops--;
 			stop();
-			if (loopTime != null && loopTime > 0) setCurrentTime(loopTime);
+			// currentTime = 0;
 			play();
-			parent.onLoop.dispatch();
 			return;
 		}
 		else if (parent.buffer != null && parent.buffer.__srcHowl != null)
@@ -132,25 +128,11 @@ class HTML5AudioSource
 		}
 		else if (parent.buffer != null && parent.buffer.__srcHowl != null)
 		{
-			var time = parent.buffer.__srcHowl.seek(id) * 1000.0 - parent.offset;
+			var time = (parent.buffer.__srcHowl.seek(id) * 1000) - parent.offset;
 			if (time < 0) return 0;
 			return time;
 		}
 		#end
-
-		return 0;
-	}
-
-	public function getLatency():Float
-	{
-		var ctx = AudioManager.context.web;
-		if (ctx != null)
-		{
-			var baseLatency:Float = untyped ctx.baseLatency != null ? untyped ctx.baseLatency : 0;
-			var outputLatency:Float = untyped ctx.outputLatency != null ? untyped ctx.outputLatency : 0;
-
-			return (baseLatency + outputLatency) * 1000;
-		}
 
 		return 0;
 	}
@@ -190,7 +172,7 @@ class HTML5AudioSource
 		return gain = value;
 	}
 
-	public function getLength():Null<Float>
+	public function getLength():Float
 	{
 		if (length != 0)
 		{
@@ -200,14 +182,14 @@ class HTML5AudioSource
 		#if lime_howlerjs
 		if (parent.buffer != null && parent.buffer.__srcHowl != null)
 		{
-			return parent.buffer.__srcHowl.duration() * 1000.0;
+			return parent.buffer.__srcHowl.duration() * 1000;
 		}
 		#end
 
 		return 0;
 	}
 
-	public function setLength(value:Null<Float>):Null<Float>
+	public function setLength(value:Float):Float
 	{
 		return length = value;
 	}
@@ -220,14 +202,6 @@ class HTML5AudioSource
 	public function setLoops(value:Int):Int
 	{
 		return loops = value;
-	}
-
-	public function getLoopTime():Float {
-		return loopTime;
-	}
-
-	public function setLoopTime(value:Float):Float {
-		return loopTime = value;
 	}
 
 	public function getPitch():Float
@@ -244,10 +218,8 @@ class HTML5AudioSource
 		#if lime_howlerjs
 		parent.buffer.__srcHowl.rate(value);
 		#end
-
 		return getPitch();
 	}
-
 
 	public function getPosition():Vector4
 	{

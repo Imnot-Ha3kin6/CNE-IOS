@@ -1,21 +1,22 @@
 package funkin.menus;
 
-import flixel.text.FlxText;
-import flixel.util.FlxColor;
 import funkin.backend.chart.Chart;
 import funkin.backend.chart.ChartData.ChartMetaData;
-import funkin.backend.scripting.events.menu.MenuChangeEvent;
-import funkin.backend.scripting.events.menu.freeplay.*;
-import funkin.backend.system.Conductor;
+import haxe.io.Path;
+import openfl.text.TextField;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
+import lime.utils.Assets;
 import funkin.game.HealthIcon;
 import funkin.savedata.FunkinSave;
+import funkin.backend.scripting.events.*;
 
 using StringTools;
 
 class FreeplayState extends MusicBeatState
 {
 	/**
-	 * Array containing all of the songs' metadata.
+	 * Array containing all of the songs metadatas
 	 */
 	public var songs:Array<ChartMetaData> = [];
 
@@ -50,7 +51,7 @@ class FreeplayState extends MusicBeatState
 	/**
 	 * Currently lerped score. Is updated to go towards `intendedScore`.
 	 */
-	public var lerpScore:Float = 0;
+	public var lerpScore:Int = 0;
 	/**
 	 * Destination for the currently lerped score.
 	 */
@@ -115,10 +116,10 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		DiscordUtil.call("onMenuLoaded", ["Freeplay"]);
+		DiscordUtil.changePresence("In the Menus", null);
 
 		super.create();
-
+		
 		// LOAD CHARACTERS
 
 		bg = new FlxSprite(0, 0).loadAnimatedGraphic(Paths.image('menus/menuDesat'));
@@ -132,22 +133,20 @@ class FreeplayState extends MusicBeatState
 
 		for (i in 0...songs.length)
 		{
-			var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].displayName, "bold");
+			var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].displayName, true, false);
 			songText.isMenuItem = true;
 			songText.targetY = i;
 			grpSongs.add(songText);
 
 			var icon:HealthIcon = new HealthIcon(songs[i].icon);
 			icon.sprTracker = songText;
-			icon.setUnstretchedGraphicSize(150, 150, true);
-			icon.updateHitbox();
 
 			// using a FlxGroup is too much fuss!
 			iconArray.push(icon);
 			add(icon);
 
 			// songText.x += 40;
-			// DON'T PUT X IN THE FIRST PARAMETER OF new ALPHABET() !!
+			// DONT PUT X IN THE FIRST PARAMETER OF new ALPHABET() !!
 			// songText.screenCenter(X);
 		}
 
@@ -162,7 +161,7 @@ class FreeplayState extends MusicBeatState
 		diffText.font = scoreText.font;
 		add(diffText);
 
-		coopText = new FlxText(diffText.x, diffText.y + diffText.height + 2, 0, "", 24);
+		coopText = new FlxText(diffText.x, diffText.y + diffText.height + 2, 0, "[TAB] Solo", 24);
 		coopText.font = scoreText.font;
 		add(coopText);
 
@@ -173,6 +172,8 @@ class FreeplayState extends MusicBeatState
 		changeCoopMode(0, true);
 
 		interpColor = new FlxInterpolateColor(bg.color);
+
+		addVirtualPad(LEFT_FULL, A_B);
 	}
 
 	#if PRELOAD_ALL
@@ -200,13 +201,7 @@ class FreeplayState extends MusicBeatState
 	 * Path to the currently playing song instrumental.
 	 */
 	public var curPlayingInst:String = null;
-	/**
-	 * If it should play the song automatically.
-	 */
-	public var autoplayShouldPlay:Bool = true;
 	#end
-
-	private var TEXT_FREEPLAY_SCORE = TU.getRaw("freeplay.score");
 
 	override function update(elapsed:Float)
 	{
@@ -217,28 +212,28 @@ class FreeplayState extends MusicBeatState
 			FlxG.sound.music.volume += 0.5 * elapsed;
 		}
 
-		lerpScore = lerp(lerpScore, intendedScore, 0.4);
+		lerpScore = Math.floor(lerp(lerpScore, intendedScore, 0.4));
 
 		if (Math.abs(lerpScore - intendedScore) <= 10)
 			lerpScore = intendedScore;
 
 		if (canSelect) {
-			changeSelection((controls.UP_P ? -1 : 0) + (controls.DOWN_P ? 1 : 0) - FlxG.mouse.wheel);
+			changeSelection((controls.UP_P ? -1 : 0) + (controls.DOWN_P ? 1 : 0));
 			changeDiff((controls.LEFT_P ? -1 : 0) + (controls.RIGHT_P ? 1 : 0));
-			changeCoopMode((FlxG.keys.justPressed.TAB ? 1 : 0)); // TODO: make this configurable
+			changeCoopMode((FlxG.keys.justPressed.TAB ? 1 : 0));
 			// putting it before so that its actually smooth
 			updateOptionsAlpha();
 		}
 
-		scoreText.text = TEXT_FREEPLAY_SCORE.format([Math.round(lerpScore)]);
-		scoreBG.scale.set(MathUtil.maxSmart(diffText.width, scoreText.width, coopText.width) + 8, (coopText.visible ? coopText.y + coopText.height : 66));
+		scoreText.text = "PERSONAL BEST:" + lerpScore;
+		scoreBG.scale.set(Math.max(Math.max(diffText.width, scoreText.width), coopText.width) + 8, (coopText.visible ? coopText.y + coopText.height : 66));
 		scoreBG.updateHitbox();
 		scoreBG.x = FlxG.width - scoreBG.width;
 
 		scoreText.x = coopText.x = scoreBG.x + 4;
 		diffText.x = Std.int(scoreBG.x + ((scoreBG.width - diffText.width) / 2));
 
-		interpColor.fpsLerpTo(songs[curSelected].color, 0.0625);
+		interpColor.fpsLerpTo(songs[curSelected].parsedColor, 0.0625);
 		bg.color = interpColor.color;
 
 		#if PRELOAD_ALL
@@ -246,37 +241,12 @@ class FreeplayState extends MusicBeatState
 		autoplayElapsed += elapsed;
 		if (!disableAutoPlay && !songInstPlaying && (autoplayElapsed > timeUntilAutoplay || FlxG.keys.justPressed.SPACE)) {
 			if (curPlayingInst != (curPlayingInst = Paths.inst(songs[curSelected].name, songs[curSelected].difficulties[curDifficulty]))) {
-				var streamed = false;
-				if (Options.streamedMusic) {
-					var sound = Assets.getMusic(curPlayingInst, true, false);
-					streamed = sound != null;
-
-					if (streamed && autoplayShouldPlay) {
-						FlxG.sound.playMusic(sound, 0);
-						Conductor.changeBPM(songs[curSelected].bpm, songs[curSelected].beatsPerMeasure, songs[curSelected].stepsPerBeat);
-					}
-				}
-
-				if (!streamed) {
-					var huh:Void->Void = function() {
-						var soundPath = curPlayingInst;
-						var sound = null;
-						if (Assets.exists(soundPath, SOUND) || Assets.exists(soundPath, MUSIC))
-							sound = Assets.getSound(soundPath);
-						else
-							FlxG.log.error('Could not find a Sound asset with an ID of \'$soundPath\'.');
-
-						if (sound != null && autoplayShouldPlay) {
-							FlxG.sound.playMusic(sound, 0);
-							Conductor.changeBPM(songs[curSelected].bpm, songs[curSelected].beatsPerMeasure, songs[curSelected].stepsPerBeat);
-						}
-					}
-					if (!disableAsyncLoading) Main.execAsync(huh);
-					else huh();
-				}
+				var huh:Void->Void = function() FlxG.sound.playMusic(curPlayingInst, 0);
+				if(!disableAsyncLoading) Main.execAsync(huh);
+				else huh();
 			}
 			songInstPlaying = true;
-			if (disableAsyncLoading && !Options.streamedMusic) dontPlaySongThisFrame = true;
+			if(disableAsyncLoading) dontPlaySongThisFrame = true;
 		}
 		#end
 
@@ -302,13 +272,12 @@ class FreeplayState extends MusicBeatState
 	function updateCoopModes() {
 		__opponentMode = false;
 		__coopMode = false;
-		var curSong = songs[curSelected];
-		if (curSong.coopAllowed && curSong.opponentModeAllowed) {
+		if (songs[curSelected].coopAllowed && songs[curSelected].opponentModeAllowed) {
 			__opponentMode = curCoopMode % 2 == 1;
 			__coopMode = curCoopMode >= 2;
-		} else if (curSong.coopAllowed) {
+		} else if (songs[curSelected].coopAllowed) {
 			__coopMode = curCoopMode == 1;
-		} else if (curSong.opponentModeAllowed) {
+		} else if (songs[curSelected].opponentModeAllowed) {
 			__opponentMode = curCoopMode == 1;
 		}
 	}
@@ -319,16 +288,19 @@ class FreeplayState extends MusicBeatState
 	public function select() {
 		updateCoopModes();
 
-		if (songs[curSelected].difficulties.length <= 0) return;
+		trace('selected');
+
+		if (songs[curSelected].difficulties.length <= 0){
+			trace('selected but interrupted by first return');
+			return;
+		}
 
 		var event = event("onSelect", EventManager.get(FreeplaySongSelectEvent).recycle(songs[curSelected].name, songs[curSelected].difficulties[curDifficulty], __opponentMode, __coopMode));
 
-		if (event.cancelled) return;
-
-		#if PRELOAD_ALL
-		autoplayShouldPlay = false;
-		#end
-
+		if (event.cancelled){
+			trace('selected but interrupted by second return');
+			return;
+		}
 		Options.freeplayLastSong = songs[curSelected].name;
 		Options.freeplayLastDifficulty = songs[curSelected].difficulties[curDifficulty];
 
@@ -339,7 +311,7 @@ class FreeplayState extends MusicBeatState
 	public function convertChart() {
 		trace('Converting ${songs[curSelected].name} (${songs[curSelected].difficulties[curDifficulty]}) to Codename format...');
 		var chart = Chart.parse(songs[curSelected].name, songs[curSelected].difficulties[curDifficulty]);
-		Chart.save('${Main.pathBack}assets/songs/${songs[curSelected].name}', chart, songs[curSelected].difficulties[curDifficulty]);
+		Chart.save('${Main.pathBack}assets/songs/${songs[curSelected].name}', chart, songs[curSelected].difficulties[curDifficulty].toLowerCase());
 	}
 
 	/**
@@ -362,9 +334,9 @@ class FreeplayState extends MusicBeatState
 		updateScore();
 
 		if (curSong.difficulties.length > 1)
-			diffText.text = '< ${curSong.difficulties[curDifficulty].toUpperCase()} >';
+			diffText.text = '< ${curSong.difficulties[curDifficulty]} >';
 		else
-			diffText.text = validDifficulties ? curSong.difficulties[curDifficulty].toUpperCase() : "-";
+			diffText.text = validDifficulties ? curSong.difficulties[curDifficulty] : "-";
 	}
 
 	function updateScore() {
@@ -384,10 +356,10 @@ class FreeplayState extends MusicBeatState
 	 * Array containing all labels for Co-Op / Opponent modes.
 	 */
 	public var coopLabels:Array<String> = [
-		TU.translate("freeplay.solo"),
-		TU.translate("freeplay.opponentMode"),
-		TU.translate("freeplay.coopMode"),
-		TU.translate("freeplay.coopModeSwitched")
+		"[TAB] Solo",
+		"[TAB] Opponent Mode",
+		"[TAB] Co-Op Mode",
+		"[TAB] Co-Op Mode (Switched)"
 	];
 
 	/**
@@ -408,12 +380,10 @@ class FreeplayState extends MusicBeatState
 
 		updateScore();
 
-		var key = "[TAB] "; // TODO: make this configurable
-
 		if (bothEnabled) {
-			coopText.text = key + coopLabels[curCoopMode];
+			coopText.text = coopLabels[curCoopMode];
 		} else {
-			coopText.text = key + coopLabels[curCoopMode * (songs[curSelected].coopAllowed ? 2 : 1)];
+			coopText.text = coopLabels[curCoopMode * (songs[curSelected].coopAllowed ? 2 : 1)];
 		}
 	}
 
@@ -436,8 +406,8 @@ class FreeplayState extends MusicBeatState
 		changeDiff(0, true);
 
 		#if PRELOAD_ALL
-		autoplayElapsed = 0;
-		songInstPlaying = false;
+			autoplayElapsed = 0;
+			songInstPlaying = false;
 		#end
 
 		coopText.visible = songs[curSelected].coopAllowed || songs[curSelected].opponentModeAllowed;
@@ -447,22 +417,19 @@ class FreeplayState extends MusicBeatState
 		var event = event("onUpdateOptionsAlpha", EventManager.get(FreeplayAlphaUpdateEvent).recycle(0.6, 0.45, 1, 1, 0.25));
 		if (event.cancelled) return;
 
-		final idleAlpha = #if PRELOAD_ALL songInstPlaying ? event.idlePlayingAlpha : #end event.idleAlpha;
-		final selectedAlpha = #if PRELOAD_ALL songInstPlaying ? event.selectedPlayingAlpha : #end event.selectedAlpha;
-
 		for (i in 0...iconArray.length)
-			iconArray[i].alpha = lerp(iconArray[i].alpha, idleAlpha, event.lerp);
+			iconArray[i].alpha = lerp(iconArray[i].alpha, #if PRELOAD_ALL songInstPlaying ? event.idlePlayingAlpha : #end event.idleAlpha, event.lerp);
 
-		iconArray[curSelected].alpha = selectedAlpha;
+		iconArray[curSelected].alpha = #if PRELOAD_ALL songInstPlaying ? event.selectedPlayingAlpha : #end event.selectedAlpha;
 
 		for (i=>item in grpSongs.members)
 		{
 			item.targetY = i - curSelected;
 
-			item.alpha = lerp(item.alpha, idleAlpha, event.lerp);
+			item.alpha = lerp(item.alpha, #if PRELOAD_ALL songInstPlaying ? event.idlePlayingAlpha : #end event.idleAlpha, event.lerp);
 
 			if (item.targetY == 0)
-				item.alpha = selectedAlpha;
+				item.alpha =  #if PRELOAD_ALL songInstPlaying ? event.selectedPlayingAlpha : #end event.selectedAlpha;
 		}
 	}
 }
@@ -472,20 +439,18 @@ class FreeplaySonglist {
 
 	public function new() {}
 
-	public function getSongsFromSource(source:funkin.backend.assets.AssetSource, useTxt:Bool = true) {
-		var songsFound:Array<String> = null;
-		if (useTxt) {
-			var oldPath = Paths.txt('freeplaySonglist');
-			var newPath = Paths.txt('config/freeplaySonglist');
-			if (Paths.assetsTree.existsSpecific(newPath, "TEXT", source)) songsFound = CoolUtil.coolTextFile(newPath);
-			else if (Paths.assetsTree.existsSpecific(oldPath, "TEXT", source)) {
-				Logs.warn("data/freeplaySonglist.txt is deprecated and will be removed in the future. Please move the file to data/config/", DARKYELLOW, "FreeplaySonglist");
-				songsFound = CoolUtil.coolTextFile(oldPath);
-			}
+	public function getSongsFromSource(source:funkin.backend.assets.AssetsLibraryList.AssetSource, useTxt:Bool = true) {
+		var path:String = Paths.txt('freeplaySonglist');
+		var songsFound:Array<String> = [];
+		if (useTxt && Paths.assetsTree.existsSpecific(path, "TEXT", source)) {
+			songsFound = CoolUtil.coolTextFile(Paths.txt('freeplaySonglist'));
+		} else {
+			songsFound = Paths.getFolderDirectories('songs', false, source);
 		}
-		if (songsFound == null) songsFound = Paths.getFolderDirectories("songs", false, source);
+
 		if (songsFound.length > 0) {
-			for (s in songsFound) songs.push(Chart.loadChartMeta(s, Flags.DEFAULT_DIFFICULTY, source == MODS));
+			for(s in songsFound)
+				songs.push(Chart.loadChartMeta(s, "normal", source == MODS));
 			return false;
 		}
 		return true;
@@ -494,17 +459,8 @@ class FreeplaySonglist {
 	public static function get(useTxt:Bool = true) {
 		var songList = new FreeplaySonglist();
 
-		switch(Flags.SONGS_LIST_MOD_MODE) {
-			case 'prepend':
-				songList.getSongsFromSource(MODS, useTxt);
-				songList.getSongsFromSource(SOURCE, useTxt);
-			case 'append':
-				songList.getSongsFromSource(SOURCE, useTxt);
-				songList.getSongsFromSource(MODS, useTxt);
-			default /*case 'override'*/:
-				if (songList.getSongsFromSource(MODS, useTxt))
-					songList.getSongsFromSource(SOURCE, useTxt);
-		}
+		if (songList.getSongsFromSource(MODS, useTxt))
+			songList.getSongsFromSource(SOURCE, useTxt);
 
 		return songList;
 	}

@@ -1,47 +1,36 @@
 package funkin.editors;
 
-import flixel.effects.FlxFlicker;
 import flixel.math.FlxPoint;
+import flixel.effects.FlxFlicker;
 
 class EditorPicker extends MusicBeatSubstate {
 	public var bg:FlxSprite;
 
-	// Name is for backwards compatibility, don't use it, use id instead
 	public var options:Array<Editor> = [
 		{
 			name: "Chart Editor",
-			id: "chart",
+			iconID: 0,
 			state: funkin.editors.charter.CharterSelection
 		},
 		{
 			name: "Character Editor",
-			id: "character",
+			iconID: 1,
 			state: funkin.editors.character.CharacterSelection
 		},
 		{
 			name: "Stage Editor",
-			id: "stage",
-			state: funkin.editors.stage.StageSelection
+			iconID: 2,
+			state: null
 		},
-		{
-			name: "Alphabet Editor",
-			id: "alphabet",
-			state: funkin.editors.alphabet.AlphabetSelection
-		},
-		#if (debug || debug_ui)
 		{
 			name: "UI Debug State",
-			id: "uiDebug",
+			iconID: 3,
 			state: UIDebugState
 		},
-		#end
 		{
-			name: "Wiki",
-			id: "wiki",
-			state: null,
-			onClick: function() {
-				CoolUtil.openURL(Flags.URL_WIKI);
-			}
+			name: "Debug Options",
+			iconID: 4,
+			state: DebugOptions
 		}
 	];
 
@@ -75,8 +64,7 @@ class EditorPicker extends MusicBeatSubstate {
 
 		optionHeight = FlxG.height / options.length;
 		for(k=>o in options) {
-			var visualName = (o.id != null) ? TU.translate("editor." + o.id + ".name") : o.name;
-			var spr = new EditorPickerOption(visualName, o.id, optionHeight);
+			var spr = new EditorPickerOption(o.name, o.iconID, optionHeight);
 			spr.y = k * optionHeight;
 			add(spr);
 			sprites.push(spr);
@@ -106,9 +94,7 @@ class EditorPicker extends MusicBeatSubstate {
 		}
 
 		if (controls.ACCEPT || FlxG.mouse.justReleased) {
-			if(options[curSelected].onClick != null)
-				options[curSelected].onClick();
-			else if (options[curSelected].state != null) {
+			if (options[curSelected].state != null) {
 				selected = true;
 				CoolUtil.playMenuSFX(CONFIRM);
 
@@ -126,7 +112,7 @@ class EditorPicker extends MusicBeatSubstate {
 					});
 				});
 			} else {
-				CoolUtil.openURL(Flags.URL_EDITOR_FALLBACK);
+				CoolUtil.openURL("https://www.youtube.com/watch?v=9Youam7GYdQ");
 			}
 
 		}
@@ -157,9 +143,8 @@ class EditorPicker extends MusicBeatSubstate {
 
 typedef Editor = {
 	var name:String;
-	var id:String;
+	var iconID:Int;
 	var state:Class<MusicBeatState>;
-	var ?onClick:Void->Void;
 }
 
 class EditorPickerOption extends FlxTypedSpriteGroup<FlxSprite> {
@@ -173,21 +158,24 @@ class EditorPickerOption extends FlxTypedSpriteGroup<FlxSprite> {
 	public var selectionLerp:Float = 0;
 
 	public var iconRotationCycle:Float = 0;
-	public function new(name:String, iconID:String, height:Float) {
+	public function new(name:String, iconID:Int, height:Float) {
 		super();
+
 
 		FlxG.mouse.visible = true;
 		iconSpr = new FlxSprite();
-		if(iconID != null)
-			iconSpr.loadGraphic(Paths.image('editors/icons/$iconID'));
-		else
-			iconSpr.exists = false;
+		iconSpr.loadGraphic(Paths.image('editors/icons'), true, 128, 128);
+		iconSpr.animation.add("icon", [iconID], 24, true);
+		iconSpr.animation.play("icon");
 		iconSpr.antialiasing = true;
-		iconSpr.setUnstretchedGraphicSize(110, 110, false);
+		if (height < 150) {
+			iconSpr.scale.set(height / 150, height / 150);
+			iconSpr.updateHitbox();
+		}
 		iconSpr.x = 25 + ((height - iconSpr.width) / 2);
 		iconSpr.y = (height - iconSpr.height) / 2;
 
-		label = new Alphabet(25 + iconSpr.width + 25, 0, name, "bold");
+		label = new Alphabet(25 + iconSpr.width + 25, 0, name, true);
 		label.y = (height - label.height) / 2;
 
 		selectionBG = new FlxSprite().makeGraphic(1, 1, -1);

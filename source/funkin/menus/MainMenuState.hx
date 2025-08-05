@@ -1,14 +1,17 @@
 package funkin.menus;
 
+import haxe.Json;
+import funkin.backend.FunkinText;
+import funkin.menus.credits.CreditsMain;
 import flixel.FlxState;
 import flixel.effects.FlxFlicker;
+import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
-import funkin.backend.FunkinText;
-import funkin.backend.scripting.events.menu.MenuChangeEvent;
-import funkin.backend.scripting.events.NameEvent;
-import funkin.menus.credits.CreditsMain;
-import funkin.options.OptionsMenu;
+import flixel.util.FlxColor;
 import lime.app.Application;
+import funkin.backend.scripting.events.*;
+import funkin.options.OptionsMenu;
+import mobile.substates.MobileControlSelectSubState;
 
 using StringTools;
 
@@ -20,23 +23,20 @@ class MainMenuState extends MusicBeatState
 
 	var optionShit:Array<String> = CoolUtil.coolTextFile(Paths.txt("config/menuItems"));
 
-	var bg:FlxSprite;
 	var magenta:FlxSprite;
 	var camFollow:FlxObject;
-	var versionText:FunkinText;
 
-	public var canAccessDebugMenus:Bool = !Flags.DISABLE_EDITORS;
+	public var canAccessDebugMenus:Bool = true;
 
 	override function create()
 	{
-
 		super.create();
 
-		DiscordUtil.call("onMenuLoaded", ["Main Menu"]);
+		DiscordUtil.changePresence("In the Menus", null);
 
 		CoolUtil.playMenuSong();
 
-		bg = new FlxSprite(-80).loadAnimatedGraphic(Paths.image('menus/menuBG'));
+		var bg:FlxSprite = new FlxSprite(-80).loadAnimatedGraphic(Paths.image('menus/menuBG'));
 		add(bg);
 
 		camFollow = new FlxObject(0, 0, 1, 1);
@@ -74,21 +74,17 @@ class MainMenuState extends MusicBeatState
 
 		FlxG.camera.follow(camFollow, null, 0.06);
 
-		versionText = new FunkinText(5, FlxG.height - 2, 0, [
-			Flags.VERSION_MESSAGE,
-			TU.translate("mainMenu.commit", [Flags.COMMIT_NUMBER, Flags.COMMIT_HASH]),
-			TU.translate("mainMenu.openMods", [controls.getKeyName(SWITCHMOD)]),
-			''
-		].join('\n'));
-		versionText.y -= versionText.height;
-		versionText.scrollFactor.set();
-		add(versionText);
+		var versionShit:FunkinText = new FunkinText(5, FlxG.height - 2, 0, 'Codename Engine v${Application.current.meta.get('version')}\nCommit ${funkin.backend.system.macros.GitCommitMacro.commitNumber} (${funkin.backend.system.macros.GitCommitMacro.commitHash})\n[TAB] Open Mods menu\n');
+		versionShit.y -= versionShit.height;
+		versionShit.scrollFactor.set();
+		add(versionShit);
 
 		changeItem();
+
+		addVirtualPad(UP_DOWN, A_B_E);
 	}
 
 	var selectedSomethin:Bool = false;
-	var forceCenterX:Bool = true;
 
 	override function update(elapsed:Float)
 	{
@@ -98,7 +94,7 @@ class MainMenuState extends MusicBeatState
 		if (!selectedSomethin)
 		{
 			if (canAccessDebugMenus) {
-				if (controls.DEV_ACCESS) {
+				if (FlxG.keys.justPressed.SEVEN) {
 					persistentUpdate = false;
 					persistentDraw = true;
 					openSubState(new funkin.editors.EditorPicker());
@@ -107,23 +103,25 @@ class MainMenuState extends MusicBeatState
 				if (FlxG.keys.justPressed.SEVEN)
 					FlxG.switchState(new funkin.desktop.DesktopMain());
 				if (FlxG.keys.justPressed.EIGHT) {
-					CoolUtil.safeSaveFile("chart.json", Json.stringify(funkin.backend.chart.Chart.parse("dadbattle", "hard")));
+					#if sys
+					sys.io.File.saveContent("chart.json", Json.stringify(funkin.backend.chart.Chart.parse("dadbattle", "hard")));
+					#end
 				}
 				*/
 			}
 
-			var upP = controls.UP_P;
-			var downP = controls.DOWN_P;
-			var scroll = FlxG.mouse.wheel;
+			if (controls.UP_P)
+				changeItem(-1);
 
-			if (upP || downP || scroll != 0)  // like this we wont break mods that expect a 0 change event when calling sometimes  - Nex
-				changeItem((upP ? -1 : 0) + (downP ? 1 : 0) - scroll);
+			if (controls.DOWN_P)
+				changeItem(1);
 
 			if (controls.BACK)
 				FlxG.switchState(new TitleState());
 
 			#if MOD_SUPPORT
-			if (controls.SWITCHMOD) {
+			// make it customisable
+			if (controls.SWITCHMOD || virtualPad.buttonE.justPressed) {
 				openSubState(new ModSwitchMenu());
 				persistentUpdate = false;
 				persistentDraw = true;
@@ -131,12 +129,13 @@ class MainMenuState extends MusicBeatState
 			#end
 
 			if (controls.ACCEPT)
+			{
 				selectItem();
+			}
 		}
 
 		super.update(elapsed);
 
-		if (forceCenterX)
 		menuItems.forEach(function(spr:FlxSprite)
 		{
 			spr.screenCenter(X);
@@ -164,11 +163,11 @@ class MainMenuState extends MusicBeatState
 
 			var event = event("onSelectItem", EventManager.get(NameEvent).recycle(daChoice));
 			if (event.cancelled) return;
-			switch (event.name)
+			switch (daChoice)
 			{
 				case 'story mode': FlxG.switchState(new StoryMenuState());
 				case 'freeplay': FlxG.switchState(new FreeplayState());
-				case 'donate', 'credits': FlxG.switchState(new CreditsMain());  // kept donate for not breaking scripts, if you don't want donate to bring you to the credits menu, thats easy softcodable  - Nex
+				case 'donate': FlxG.switchState(new CreditsMain());
 				case 'options': FlxG.switchState(new OptionsMenu());
 			}
 		});

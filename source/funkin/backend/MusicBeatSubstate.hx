@@ -1,29 +1,26 @@
 package funkin.backend;
 
 import flixel.FlxState;
-import flixel.FlxSubState;
-import funkin.backend.scripting.DummyScript;
+import funkin.backend.scripting.events.*;
 import funkin.backend.scripting.Script;
 import funkin.backend.scripting.ScriptPack;
-import funkin.backend.scripting.events.*;
+import funkin.backend.scripting.DummyScript;
+import funkin.backend.system.interfaces.IBeatReceiver;
 import funkin.backend.system.Conductor;
 import funkin.backend.system.Controls;
-import funkin.backend.system.interfaces.IBeatReceiver;
 import funkin.options.PlayerSettings;
+import flixel.FlxSubState;
+import mobile.objects.MobileControls;
+import mobile.flixel.FlxVirtualPad;
+import flixel.FlxCamera;
+import flixel.input.actions.FlxActionInput;
+import flixel.util.FlxDestroyUtil;
 
-/**
- * Base class for all the sub states.
- * Handles the scripts, the transitions, and the beat and step events.
-**/
 class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 {
 	private var lastBeat:Float = 0;
 	private var lastStep:Float = 0;
 
-	/**
-	 * Whether this specific substate can open custom transitions
-	 */
-	public var canOpenCustomTransition:Bool = false;
 	/**
 	 * Current step
 	 */
@@ -99,9 +96,114 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 	inline function get_controlsP2():Controls
 		return PlayerSettings.player2.controls;
 
+	public var mobileControls:MobileControls;
+	public var virtualPad:FlxVirtualPad;
+	public var camControls:FlxCamera;
+	public var camVPad:FlxCamera;
+	public static var instance:MusicBeatSubstate;
+
+	var trackedInputsMobileControls:Array<FlxActionInput> = [];
+	var trackedInputsVirtualPad:Array<FlxActionInput> = [];
+
+	public function addVirtualPad(DPad:FlxDPadMode, Action:FlxActionMode)
+	{
+		if (virtualPad != null)
+			removeVirtualPad();
+
+		virtualPad = new FlxVirtualPad(DPad, Action);
+		add(virtualPad);
+
+		controls.setVirtualPadUI(virtualPad, DPad, Action);
+		trackedInputsVirtualPad = controls.trackedInputsUI;
+		controls.trackedInputsUI = [];
+	}
+
+	public function removeVirtualPad()
+	{
+		if (trackedInputsVirtualPad.length > 0)
+			controls.removeVirtualControlsInput(trackedInputsVirtualPad);
+
+		if (virtualPad != null)
+			remove(virtualPad);
+	}
+
+	public function addMobileControls(DefaultDrawTarget:Bool = false) {
+		if (mobileControls != null)
+			removeMobileControls();
+
+		mobileControls = new MobileControls();
+
+		switch (MobileControls.mode)
+		{
+			case 0 | 1 | 2:
+				controls.setVirtualPadNOTES(mobileControls.virtualPad, RIGHT_FULL, NONE);
+			case 3:
+				controls.setVirtualPadNOTES(mobileControls.virtualPad, BOTH, NONE);
+			case 4:
+				controls.setHitBox(mobileControls.hitbox);
+			case 5: // do nothing
+		}
+
+		trackedInputsMobileControls = controls.trackedInputsNOTES;
+		controls.trackedInputsNOTES = [];
+
+		camControls = new FlxCamera();
+		camControls.bgColor.alpha = 0;
+		FlxG.cameras.add(camControls, DefaultDrawTarget);
+
+		mobileControls.cameras = [camControls];
+		mobileControls.visible = false;
+		add(mobileControls);
+	}
+
+	public function removeMobileControls() {
+		if(trackedInputsMobileControls.length > 0)
+			controls.removeVirtualControlsInput(trackedInputsMobileControls);
+
+		if(mobileControls != null)
+			remove(mobileControls);
+	}
+
+	public function addVirtualPadCamera(DefaultDrawTarget:Bool = false) {
+		if (virtualPad == null) return;
+
+		camVPad = new FlxCamera();
+		camVPad.bgColor.alpha = 0;
+		FlxG.cameras.add(camVPad, DefaultDrawTarget);
+		virtualPad.cameras = [camVPad];
+	}
+
+	override function destroy() {
+		// Mobile Controls Related
+		if(trackedInputsMobileControls.length > 0)
+			controls.removeVirtualControlsInput(trackedInputsMobileControls);
+
+		if(trackedInputsVirtualPad.length > 0)
+			controls.removeVirtualControlsInput(trackedInputsVirtualPad);
+
+		
+		if(virtualPad != null)
+			virtualPad = FlxDestroyUtil.destroy(virtualPad);
+		
+		if(mobileControls != null)
+			mobileControls = FlxDestroyUtil.destroy(mobileControls);
+
+		if(camControls != null)
+			camControls = FlxDestroyUtil.destroy(camControls);
+
+		if(camVPad != null)
+			camVPad = FlxDestroyUtil.destroy(camVPad);
+
+		// CNE Related
+		call("destroy");
+		stateScripts = FlxDestroyUtil.destroy(stateScripts);
+
+		super.destroy();
+	}
 
 	public function new(scriptsAllowed:Bool = true, ?scriptName:String) {
 		super();
+		instance = this;
 		this.scriptsAllowed = #if SOFTCODED_STATES scriptsAllowed #else false #end;
 		this.scriptName = scriptName;
 	}
@@ -122,9 +224,7 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 					script.load();
 				}
 			}
-			#if EXPERMENTAL_SCRIPT_RELOADING
 			else stateScripts.reload();
-			#end
 		}
 	}
 
@@ -136,19 +236,15 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 			call("postUpdate", [elapsed]);
 		}
 
-		// if (subState == null && (MusicBeatState.ALLOW_DEV_RELOAD && controls.DEV_RELOAD)) {
-		// 	Logs.trace("Reloading Current SubState...", INFO, YELLOW);
-		// 	var test = Type.createInstance(Type.getClass(this), [this.scriptsAllowed, this.scriptName]);
-		// 	parent.openSubState(test);
-		// }
-
-		if (_requestSubStateReset) {
+		if (_requestSubStateReset)
+		{
 			_requestSubStateReset = false;
 			resetSubState();
 		}
-
 		if (subState != null)
+		{
 			subState.tryUpdate(elapsed);
+		}
 	}
 
 	override function close() {
@@ -185,25 +281,29 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 
 	override function update(elapsed:Float)
 	{
+		// TODO: DEBUG MODE!!
+		if (FlxG.keys.justPressed.F5) {
+			loadScript();
+		}
 		call("update", [elapsed]);
 		super.update(elapsed);
 	}
 
 	@:dox(hide) public function stepHit(curStep:Int):Void
 	{
-		for(e in members) if (e is IBeatReceiver) ({var _:IBeatReceiver=cast e;_;}).stepHit(curStep);
+		for(e in members) if (e is IBeatReceiver) cast(e, IBeatReceiver).stepHit(curStep);
 		call("stepHit", [curStep]);
 	}
 
 	@:dox(hide) public function beatHit(curBeat:Int):Void
 	{
-		for(e in members) if (e is IBeatReceiver) ({var _:IBeatReceiver=cast e;_;}).beatHit(curBeat);
+		for(e in members) if (e is IBeatReceiver) cast(e, IBeatReceiver).beatHit(curBeat);
 		call("beatHit", [curBeat]);
 	}
 
 	@:dox(hide) public function measureHit(curMeasure:Int):Void
 	{
-		for(e in members) if (e is IBeatReceiver) ({var _:IBeatReceiver=cast e;_;}).measureHit(curMeasure);
+		for(e in members) if (e is IBeatReceiver) cast(e, IBeatReceiver).measureHit(curMeasure);
 		call("measureHit", [curMeasure]);
 	}
 
@@ -227,7 +327,7 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 	public override function openSubState(subState:FlxSubState) {
 		var e = event("onOpenSubState", EventManager.get(StateEvent).recycle(subState));
 		if (!e.cancelled)
-			super.openSubState(e.substate is FlxSubState ? cast e.substate : subState);
+			super.openSubState(subState);
 	}
 
 	public override function onResize(w:Int, h:Int) {
@@ -235,17 +335,11 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 		event("onResize", EventManager.get(ResizeEvent).recycle(w, h, null, null));
 	}
 
-	public override function destroy() {
-		super.destroy();
-		call("destroy");
-		stateScripts = FlxDestroyUtil.destroy(stateScripts);
-	}
-
 	public override function switchTo(nextState:FlxState) {
 		var e = event("onStateSwitch", EventManager.get(StateEvent).recycle(nextState));
 		if (e.cancelled)
 			return false;
-		return super.switchTo(e.substate);
+		return super.switchTo(nextState);
 	}
 
 	public override function onFocus() {
@@ -260,14 +354,18 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver
 
 	public var parent:FlxState;
 
-	public function onSubstateOpen() {}
+	public function onSubstateOpen() {
+
+	}
 
 	public override function resetSubState() {
-		super.resetSubState();
 		if (subState != null && subState is MusicBeatSubstate) {
-			var subState:MusicBeatSubstate = cast subState;
-			subState.parent = this;
-			subState.onSubstateOpen();
+			cast(subState, MusicBeatSubstate).parent = this;
+			super.resetSubState();
+			if (subState != null)
+				cast(subState, MusicBeatSubstate).onSubstateOpen();
+			return;
 		}
+		super.resetSubState();
 	}
 }

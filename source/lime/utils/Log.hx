@@ -1,9 +1,17 @@
 package lime.utils;
 
 import haxe.PosInfos;
-#if !macro
+import haxe.Exception;
 import funkin.backend.system.Logs as FunkinLogs;
+#if js
+import flixel.FlxG;
+#elseif sys
+import sys.io.File;
+import sys.FileSystem;
 #end
+	
+using StringTools;
+
 
 #if !lime_debug
 @:fileXml('tags="haxe,release"')
@@ -12,17 +20,17 @@ import funkin.backend.system.Logs as FunkinLogs;
 class Log
 {
 	public static var level:LogLevel;
-	public static var throwErrors:Bool = false;
 
 	public static function debug(message:Dynamic, ?info:PosInfos):Void
 	{
 		if (level >= LogLevel.DEBUG)
 		{
 			#if js
-			untyped #if haxe4 js.Syntax.code #else __js__ #end ("console").debug("[" + info.className + "] " + message);
+			untyped __js__("console").debug("[" + info.className + "] " + message);
 			#else
 			println("[" + info.className + "] " + Std.string(message));
 			#end
+
 		}
 	}
 
@@ -30,34 +38,40 @@ class Log
 	{
 		if (level >= LogLevel.ERROR)
 		{
-			if (throwErrors)
+			var message = '[${info.className}] $message';
+
+			#if sys
+			try
 			{
-				#if webassembly
-				println(message);
-				#end
-				throw message;
-			}
-			else
-			{
-				#if !macro
-				FunkinLogs.trace('[${info.className}] $message', ERROR, RED);
-				#else
-				println("[" + info.className + "] ERROR: " + message);
-				#end
-			}
+				if (!FileSystem.exists('crash'))
+					FileSystem.createDirectory('crash');
+				
+				File.saveContent('crash/' + Date.now().toString().replace(' ', '-').replace(':', "'") + '.txt', message);
+			} catch (e:Exception)
+				FunkinLogs.trace('Couldn\'t save error message. (${e.message})', WARNING, YELLOW);
+			#end
+
+			#if (mobile || windows)
+			lime.app.Application.current.window.alert(message, "Error!");
+			#else
+			FunkinLogs.trace(message, ERROR, RED);
+			#end
+
+			#if js
+			if (FlxG.sound.music != null)
+				FlxG.sound.music.stop();
+			
+			js.Browser.window.location.reload(true);
+			#else
+			lime.system.System.exit(1);
+			#end
 		}
 	}
 
 	public static function info(message:Dynamic, ?info:PosInfos):Void
 	{
 		if (level >= LogLevel.INFO)
-		{
-			#if !macro
 			FunkinLogs.trace('[${info.className}] $message', INFO, RED);
-			#else
-			println("[" + info.className + "] " + Std.string(message));
-			#end
-		}
 	}
 
 	public static inline function print(message:Dynamic):Void
@@ -67,7 +81,7 @@ class Log
 		#elseif flash
 		untyped __global__["trace"](Std.string(message));
 		#elseif js
-		untyped #if haxe4 js.Syntax.code #else __js__ #end ("console").log(message);
+		untyped __js__("console").log(message);
 		#else
 		trace(message);
 		#end
@@ -80,7 +94,7 @@ class Log
 		#elseif flash
 		untyped __global__["trace"](Std.string(message));
 		#elseif js
-		untyped #if haxe4 js.Syntax.code #else __js__ #end ("console").log(message);
+		untyped __js__("console").log(message);
 		#else
 		trace(Std.string(message));
 		#end
@@ -89,24 +103,14 @@ class Log
 	public static function verbose(message:Dynamic, ?info:PosInfos):Void
 	{
 		if (level >= LogLevel.VERBOSE)
-		{
-			#if !macro
 			FunkinLogs.trace('[${info.className}] $message', VERBOSE);
-			#else
-			println("[" + info.className + "] " + message);
-			#end
-		}
 	}
 
 	public static function warn(message:Dynamic, ?info:PosInfos):Void
 	{
 		if (level >= LogLevel.WARN)
 		{
-			#if !macro
 			FunkinLogs.trace('[${info.className}] $message', WARNING, YELLOW);
-			#else
-			println("[" + info.className + "] WARNING: " + Std.string(message));
-			#end
 		}
 	}
 
@@ -135,13 +139,13 @@ class Log
 		#end
 
 		#if js
-		if (untyped #if haxe4 js.Syntax.code #else __js__ #end ("typeof console") == "undefined")
+		if (untyped __js__("typeof console") == "undefined")
 		{
-			untyped #if haxe4 js.Syntax.code #else __js__ #end ("console = {}");
+			untyped __js__("console = {}");
 		}
-		if (untyped #if haxe4 js.Syntax.code #else __js__ #end ("console").log == null)
+		if (untyped __js__("console").log == null)
 		{
-			untyped #if haxe4 js.Syntax.code #else __js__ #end ("console").log = function() {};
+			untyped __js__("console").log = function() {};
 		}
 		#end
 	}

@@ -2,24 +2,24 @@ package funkin.backend.utils;
 
 import openfl.Lib;
 
-final class WindowUtils {
-	public static var title(default, set):String;
-	private static function set_title(value:String):String {
-		title = value;
+class WindowUtils {
+	public static var winTitle(default, set):String;
+	public static function set_winTitle(newWinTitle:String):String {
+		winTitle = newWinTitle;
 		updateTitle();
-		return value;
+		return newWinTitle;
 	}
 	public static var prefix(default, set):String = "";
-	private static function set_prefix(value:String):String {
-		prefix = value;
+	public static function set_prefix(newPrefix:String):String {
+		prefix = newPrefix;
 		updateTitle();
-		return value;
+		return newPrefix;
 	}
-	public static var suffix(default, set):String = "";
-	private static function set_suffix(value:String):String {
-		suffix = value;
+	public static var endfix(default, set):String = "";
+	public static function set_endfix(endPrefix:String):String {
+		endfix = endPrefix;
 		updateTitle();
-		return value;
+		return endPrefix;
 	}
 
 	public static var preventClosing:Bool = true;
@@ -28,7 +28,7 @@ final class WindowUtils {
 	static var __triedClosing:Bool = false;
 	public static inline function resetClosing() __triedClosing = false;
 
-	@:dox(hide) public static inline function init() {
+	public static inline function init() {
 		resetTitle();
 		resetClosing();
 
@@ -41,52 +41,12 @@ final class WindowUtils {
 		});
 	}
 
-	/**
-	 * Resets the window title to the application name and resets the prefix and suffix.
-	**/
 	public static inline function resetTitle() {
-		title = Flags.TITLE == null ? Lib.application.meta.get('name') : Flags.TITLE;
-		resetAffixes();
-	}
-
-	/**
-	 * Resets the prefix and suffix.
-	**/
-	public static inline function resetAffixes() {
-		prefix = suffix = "";
+		winTitle = Lib.application.meta["name"];
+		prefix = endfix = "";
 		updateTitle();
 	}
 
-	/**
-	 * Sets the window title and icon.
-	 * @param title The title to set.
-	 * @param image The image to set as the icon.
-	**/
-	public static inline function setWindow(?name:String, ?image:String)
-	{			Lib.application.window.setIcon(lime.graphics.Image.fromBytes(Assets.getBytes(image != null ? image : Flags.MOD_ICON)));
-		title = name != null ? name : Flags.MOD_NAME;
-	}
-
-	/**
-	 * Updates the window title to have the current title and prefix/suffix.
-	**/
 	public static inline function updateTitle()
-		Lib.application.window.title = '$prefix$title$suffix';
-
-	// backwards compat
-	@:noCompletion public static var endfix(get, set):String;
-	@:noCompletion private inline static function set_endfix(value:String):String {
-		return suffix = value;
-	}
-	@:noCompletion private inline static function get_endfix():String {
-		return suffix;
-	}
-
-	@:noCompletion public static var winTitle(get, set):String;
-	@:noCompletion private inline static function get_winTitle():String {
-		return title;
-	}
-	@:noCompletion private inline static function set_winTitle(value:String):String {
-		return title = value;
-	}
+		Lib.application.window.title = '$prefix$winTitle$endfix';
 }

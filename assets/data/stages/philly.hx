@@ -1,4 +1,3 @@
-//
 import funkin.game.PlayState;
 
 // phillyTrain is automatically added by Stage.hx
@@ -91,7 +90,7 @@ function updateTrainPos():Void
 
 function trainReset():Void
 {
-	gf.playAnim('hairFall', true);
+	gf.playAnim('hairFall');
 	phillyTrain.x = FlxG.width + 200;
 	trainMoving = false;
 	// trainSound.stop();

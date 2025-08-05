@@ -1,8 +1,5 @@
 package funkin.backend.assets;
 
-#if TRANSLATIONS_SUPPORT
-import funkin.backend.assets.TranslatedAssetLibrary;
-#end
 import funkin.backend.assets.IModsAssetLibrary;
 import lime.utils.AssetLibrary;
 
@@ -14,38 +11,18 @@ class AssetsLibraryList extends AssetLibrary {
 	private var __defaultLibraries:Array<AssetLibrary> = [];
 	public var base:AssetLibrary;
 
-	#if TRANSLATIONS_SUPPORT
-	public var transLib:TranslatedAssetLibrary;
-	#end
-
 	public function removeLibrary(lib:AssetLibrary) {
-		if (lib != null) {
-			libraries.remove(lib);
-			#if TRANSLATIONS_SUPPORT
-			// TODO: improve this code
-			for(k=>l in libraries) {
-				if(l == null) continue;
-				if(l is TranslatedAssetLibrary) {
-					var tlib = cast(l, TranslatedAssetLibrary);
-					var lib:Dynamic = lib;
-					if(tlib.forLibrary == lib) {
-						libraries.remove(tlib);
-						break;
-					}
-				}
-			}
-			#end
-		}
+		if (lib == null) return lib;
+		libraries.remove(lib);
 		return lib;
 	}
 	public function existsSpecific(id:String, type:String, source:AssetSource = BOTH) {
-		if (!id.startsWith("assets/") && existsSpecific('assets/$id', type, source))
+		if (!id.startsWith("assets/") && exists('assets/$id', type))
 			return true;
-		for(k=>l in libraries) {
-			if (shouldSkipLib(l, source)) continue;
-			if (l.exists(id, type)) {
+		for(k=>e in libraries) {
+			if (shouldSkipLib(k, source)) continue;
+			if (e.exists(id, type))
 				return true;
-			}
 		}
 		return false;
 	}
@@ -54,7 +31,7 @@ class AssetsLibraryList extends AssetLibrary {
 
 	public function getSpecificPath(id:String, source:AssetSource = BOTH) {
 		for(k=>e in libraries) {
-			if (shouldSkipLib(e, source)) continue;
+			if (shouldSkipLib(k, source)) continue;
 
 			@:privateAccess
 			if (e.exists(id, e.types.get(id))) {
@@ -71,17 +48,22 @@ class AssetsLibraryList extends AssetLibrary {
 
 	public function getFiles(folder:String, source:AssetSource = BOTH):Array<String> {
 		var content:Array<String> = [];
-		for(k=>l in libraries) {
-			if (shouldSkipLib(l, source)) continue;
+		for(k=>e in libraries) {
+			if (shouldSkipLib(k, source)) continue;
 
-			l = getCleanLibrary(l);
+			var l = e;
+
+			if (l is openfl.utils.AssetLibrary) {
+				@:privateAccess
+				l = cast(l, openfl.utils.AssetLibrary).__proxy;
+			}
 
 			// TODO: do base folder scanning
 			#if MOD_SUPPORT
 			if (l is IModsAssetLibrary) {
 				var lib = cast(l, IModsAssetLibrary);
 				for(e in lib.getFiles(folder))
-					content.pushOnce(e);
+					content.push(e);
 			}
 			#end
 		}
@@ -90,17 +72,22 @@ class AssetsLibraryList extends AssetLibrary {
 
 	public function getFolders(folder:String, source:AssetSource = BOTH):Array<String> {
 		var content:Array<String> = [];
-		for(k=>l in libraries) {
-			if (shouldSkipLib(l, source)) continue;
+		for(k=>e in libraries) {
+			if (shouldSkipLib(k, source)) continue;
 
-			l = getCleanLibrary(l);
+			var l = e;
+
+			if (l is openfl.utils.AssetLibrary) {
+				@:privateAccess
+				l = cast(l, openfl.utils.AssetLibrary).__proxy;
+			}
 
 			// TODO: do base folder scanning
 			#if MOD_SUPPORT
 			if (l is IModsAssetLibrary) {
 				var lib = cast(l, IModsAssetLibrary);
 				for(e in lib.getFolders(folder))
-					content.pushOnce(e);
+					content.push(e);
 			}
 			#end
 		}
@@ -115,12 +102,12 @@ class AssetsLibraryList extends AssetLibrary {
 					return ass;
 				}
 			}
-			for(k=>l in libraries) {
-				if (shouldSkipLib(l, source)) continue;
+			for(k=>e in libraries) {
+				if (shouldSkipLib(k, source)) continue;
 
 				@:privateAccess
-				if (l.exists(id, l.types.get(id))) {
-					var asset = l.getAsset(id, type);
+				if (e.exists(id, e.types.get(id))) {
+					var asset = e.getAsset(id, type);
 					if (asset != null) {
 						return asset;
 					}
@@ -128,15 +115,17 @@ class AssetsLibraryList extends AssetLibrary {
 			}
 			return null;
 		} catch(e) {
-			// TODO: trace the error
 			throw e;
 		}
 		return null;
 	}
 
-	private function shouldSkipLib(lib:AssetLibrary, source:AssetSource) {
-		if (source == BOTH || lib.tag == BOTH) return false;
-		return source != lib.tag;
+	private function shouldSkipLib(k:Int, source:AssetSource) {
+		return switch(source) {
+			case BOTH:	  false;
+			case SOURCE:	k < libraries.length - __defaultLibraries.length;
+			case MODS:	  k >= libraries.length - __defaultLibraries.length;
+		};
 	}
 	public override inline function getAsset(id:String, type:String):Dynamic
 		return getSpecificAsset(id, type, BOTH);
@@ -147,23 +136,10 @@ class AssetsLibraryList extends AssetLibrary {
 
 	public function new(?base:AssetLibrary) {
 		super();
-		if (base == null) (this.base = Assets.getLibrary("default")).tag = SOURCE;
-		else this.base = base;
-		__defaultLibraries.push(this.base);
-
-		#if (sys && TEST_BUILD)
-		Logs.infos("Used cne test / cne build. Switching into source assets.");
-
-		#if MOD_SUPPORT
-		ModsFolder.modsPath = './${Main.pathBack}mods/';
-		ModsFolder.addonsPath = './${Main.pathBack}addons/';
-		#end
-
-		__defaultLibraries.push(ModsFolder.loadLibraryFromFolder('assets', './${Main.pathBack}assets/', true, SOURCE));
-		#elseif USE_ADAPTED_ASSETS
-		__defaultLibraries.push(ModsFolder.loadLibraryFromFolder('assets', './assets/', true, SOURCE));
-		#end
-		for (d in __defaultLibraries) addLibrary(d);
+		if (base == null)
+			base = Assets.getLibrary("default");
+		addLibrary(this.base = base);
+		__defaultLibraries.push(base);
 	}
 
 	public function unloadLibraries() {
@@ -178,33 +154,18 @@ class AssetsLibraryList extends AssetLibrary {
 		libraries = [];
 
 		// adds default libraries in again
-		for (d in __defaultLibraries) addLibrary(d);
+		for(d in __defaultLibraries)
+			addLibrary(d);
 	}
 
-	public function addLibrary(lib:AssetLibrary, ?tag:AssetSource, ?addTransLib:Bool = true) {
+	public function addLibrary(lib:AssetLibrary) {
 		libraries.insert(0, lib);
-		if (tag != null) lib.tag = tag;
-		else if (lib.tag == null) lib.tag = MODS;
-		#if TRANSLATIONS_SUPPORT
-		if(addTransLib) {
-			var cleanLib = getCleanLibrary(lib);
-			if(cleanLib != null && (cleanLib is IModsAssetLibrary)) {
-				var transLib = new TranslatedAssetLibrary(cast(cleanLib, IModsAssetLibrary));
-				transLib.tag = cleanLib.tag;
-				libraries.insert(0, transLib);
-			}
-		}
-		#end
 		return lib;
 	}
+}
 
-	public static function getCleanLibrary(e:AssetLibrary):AssetLibrary {
-		var l = e;
-		if (l is openfl.utils.AssetLibrary) {
-			var al = cast(l, openfl.utils.AssetLibrary);
-			@:privateAccess
-			if (al.__proxy != null) l = al.__proxy;
-		}
-		return l;
-	}
+enum abstract AssetSource(Null<Bool>) from Bool from Null<Bool> to Null<Bool> {
+	var SOURCE = true;
+	var MODS = false;
+	var BOTH = null;
 }
