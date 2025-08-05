@@ -33,6 +33,7 @@ jobs:
         haxelib install flixel-addons
         haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
         haxelib run lime setup -y
+	haxelib install away3d
         
     - name: Setup iOS
       run: |
