@@ -15,34 +15,39 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Haxe
+    - name: Setup Haxe 3.4.7
       run: |
-        brew install haxe
+        brew uninstall haxe || true
+        brew tap homebrew/cask-versions
+        brew install haxe@3.4
+        brew link haxe@3.4 --force
+        haxe -version
 
     - name: Setup Haxelib
       run: |
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
 
-    - name: Install Haxe dependencies
+    - name: Install OLD Haxe dependencies
       run: |
-        haxelib install lime
-        haxelib install openfl
-        haxelib install flixel 
-        haxelib install flixel-ui
-        haxelib install flixel-addons
+        haxelib install lime 2.9.1
+        haxelib install openfl 3.6.1
+        haxelib install flixel 4.3.0
+        haxelib install flixel-ui 2.3.0
+        haxelib install flixel-addons 2.6.0
         haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
         haxelib run lime setup -y
-        haxelib install away3d
-        haxelib install format
-        haxelib install flxanimate
-        haxelib install nape-haxe4
-        haxelib install markdown
+        haxelib install away3d 1.0.0
+        haxelib install format 3.3.0
+        haxelib install flxanimate 3.0.4
+        haxelib install nape 2.0.20
+        haxelib install markdown 1.0.0
+
     - name: Setup iOS
       run: |
         haxelib run lime setup ios -y
 
-    - name: Build iOS
+    - name: Build iOS (No Signing)
       run: |
         haxelib run lime build ios -release -nosign
 
