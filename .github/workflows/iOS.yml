@@ -35,6 +35,7 @@ jobs:
         haxelib run lime setup -y
         haxelib install away3d
         haxelib install format
+        haxelib install flxanimate
 
     - name: Setup iOS
       run: |
