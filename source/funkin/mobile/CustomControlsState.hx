@@ -1,7 +1,7 @@
 package funkin.mobile;
 
 #if mobile
-import flixel.addons.ui.FlxUIButton;
+import flixel.ui.FlxButton;
 import flixel.text.FlxText;
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -17,9 +17,9 @@ class CustomControlsState extends MusicBeatSubstate {
     var _pad:FlxVirtualPad;
     var _hb:HitBox;
 
-    var exitButton:FlxUIButton;
-    var exportButton:FlxUIButton;
-    var importButton:FlxUIButton;
+    var exitButton:FlxButton;
+    var exportButton:FlxButton;
+    var importButton:FlxButton;
 
     var inputVari:FlxText;
     var upText:FlxText;
@@ -54,37 +54,42 @@ class CustomControlsState extends MusicBeatSubstate {
         _hb = new HitBox();
         _hb.visible = false;
 
-        exitButton = createButton(FlxG.width - 650, 25, 'exit', null);
+        exitButton = createButton(FlxG.width - 650, 25, 'exit', () -> close());
         exitButton.resize(125, 50);
-        var saveButton = createButton(exitButton.x + exitButton.width + 25, 25, 'exit and save', () ->
-        {
+
+        var saveButton = createButton(exitButton.x + exitButton.width + 25, 25, 'exit and save', () -> {
             save();
             close();
         });
         saveButton.resize(250, 50);
+
         exportButton = createButton(FlxG.width - 150, 25, 'export', () -> savetoclipboard(_pad));
         exportButton.resize(125, 50);
+
         importButton = createButton(exportButton.x, 100, 'import', () -> loadfromclipboard(_pad));
         importButton.resize(125, 50);
+
         for (button in [exitButton, saveButton, exportButton, importButton]) add(button);
 
         upText = createText(200, 200, 'Button up x:' + _pad.buttonUp.x + ' y:' + _pad.buttonUp.y);
         downText = createText(200, 250, 'Button down x:' + _pad.buttonDown.x + ' y:' + _pad.buttonDown.y);
         leftText = createText(200, 300, 'Button left x:' + _pad.buttonLeft.x + ' y:' + _pad.buttonLeft.y);
         rightText = createText(200, 350, 'Button right x:' + _pad.buttonRight.x + ' y:' + _pad.buttonRight.y);
+
         for (txt in [upText, downText, leftText, rightText]) add(txt);
 
         var arrowTex = FlxAtlasFrames.fromSparrow('assets/mobile/arrows.png', 'assets/mobile/arrows.xml');
         leftArrow = createArrow(inputVari.x - 60, inputVari.y - 10, arrowTex, 'arrow left', 'arrow push left');
         rightArrow = createArrow(inputVari.x + inputVari.width + 10, leftArrow.y, arrowTex, 'arrow right', 'arrow push right');
+
         for (obj in [leftArrow, rightArrow, inputVari, _pad, _hb]) add(obj);
 
         changeSelection();
     }
 
-    function createButton(x:Float, y:Float, label:String, onClick:Void->Void):FlxUIButton {
-        var button = new FlxUIButton(x, y, label, onClick);
-        button.setLabelFormat('VCR OSD Mono', 24, FlxColor.BLACK, 'center');
+    function createButton(x:Float, y:Float, label:String, onClick:Void->Void):FlxButton {
+        var button = new FlxButton(x, y, label, onClick);
+        button.label.setFormat('VCR OSD Mono', 24, FlxColor.BLACK, 'center');
         return button;
     }
 
@@ -191,14 +196,13 @@ class CustomControlsState extends MusicBeatSubstate {
 
     function savetoclipboard(pad:FlxVirtualPad) {
         var json = { buttonsarray: [] };
-        for (button in pad) json.buttonsarray.push(FlxPoint .get(button.x, button.y));
+        for (button in pad) json.buttonsarray.push(FlxPoint.get(button.x, button.y));
         openfl.system.System.setClipboard(Json.stringify(json).trim());
     }
 
     function loadfromclipboard(pad:FlxVirtualPad):Void {
         if (curSelected != 3) changeSelection(0, 3);
-        var cbText:String = Clipboard.text; // this not working on android 10 or higher
-        // Wait, really?? ~ Idklool 2025
+        var cbText:String = Clipboard.text;
         if (!cbText.endsWith('}')) return;
 
         var json = Json.parse(cbText);
