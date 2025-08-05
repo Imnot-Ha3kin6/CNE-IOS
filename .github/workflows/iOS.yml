@@ -1,56 +1,57 @@
-name: iOS Build
+name: Build iOS Appp
+
 on:
   push:
-    branches:
-      - main
-      - master
-  workflow_dispatch:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Manual trigger
 
 jobs:
-  iOS:
-    runs-on: macos-14
+  build-ios:
+    runs-on: macos-latest
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Update all files
-        run: |
-          git fetch --all
-          git reset --hard origin/${{ github.ref_name }}
-          git clean -fd
-
-      - name: Setup Haxe (manual)
-        run: |
-          brew update
-          brew install haxe
-          haxe --version
-
-      - name: Install Libraries
-        run: |
-          haxe -cp commandline -D analyzer-optimize --run Main setup -s
-
-      - name: Rebuild Lime for ARM64
-        run: |
-          haxelib run lime rebuild macos
-
-      - name: Verify library versions
-        run: haxelib list
-
-      - name: Compile iOS
-        run: haxelib run lime build ios -clean -nosign
-
-      - name: Create IPA
-        run: |
-          cd export/release/ios/build/*-iphoneos
-          mkdir Payload
-          mv *.app Payload
-          zip -r CodenameEngine.ipa Payload
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: CodenameEngine-iOS
-          path: export/release/ios/build/Release-iphoneos/*.ipa
-          if-no-files-found: error
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Haxe
+      run: |
+        brew install haxe
+        
+    - name: Setup Haxelib
+      run: |
+        mkdir -p ~/haxelib
+        haxelib setup ~/haxelib
+        
+    - name: Install Haxe dependencies
+      run: |
+        haxelib install lime
+        haxelib install openfl
+        haxelib install flixel
+        haxelib install flixel-ui
+        haxelib install flixel-addons
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
+        haxelib run lime setup -y
+        
+    - name: Setup iOS
+      run: |
+        haxelib run lime setup ios -y
+        
+    - name: Build iOS
+      run: |
+        haxelib run lime build ios -release
+        
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-app
+        path: export/ios/build/Release-iphoneos/*.ipa
+        if-no-files-found: warn
+        
+    - name: Upload Simulator App (fallback)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-simulator-app
+        path: export/ios/build/Release-iphonesimulator/*.app
+        if-no-files-found: ignore
