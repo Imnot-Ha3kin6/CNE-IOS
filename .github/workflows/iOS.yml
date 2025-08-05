@@ -1,57 +1,53 @@
 name: iOS Build
+
 on:
   push:
-    branches: 
+    branches:
       - main
       - master
   workflow_dispatch:
+
 jobs:
   iOS:
     runs-on: macos-14
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Update all files
         run: |
           git fetch --all
           git reset --hard origin/${{ github.ref_name }}
           git clean -fd
+
       - name: Setup Haxe
-        uses: krdlab/setup-haxe@master
+        uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.4
+
       - name: Install Libraries
         run: |
           haxe -cp commandline -D analyzer-optimize --run Main setup -s
-          # Remove existing libraries to avoid conflicts
-          haxelib remove lime --quiet || true
-          haxelib remove flixel --quiet || true
-          haxelib remove flixel-addons --quiet || true
-          haxelib remove openfl --quiet || true
-          # Install compatible versions
-          haxelib git lime https://github.com/moxie-coder/lime-8.2.2 --quiet
-          haxelib install flixel 5.8.0 --quiet
-          haxelib git flixel-addons https://github.com/HaxeFlixel/flixel-addons --quiet
-          haxelib install openfl 9.3.3 --quiet
-          # Set active versions
-          haxelib set flixel 5.8.0
-          haxelib set openfl 9.3.3
+
       - name: Verify library versions
-        run: |
-          haxelib list
+        run: haxelib list
+
       - name: Compile
         run: haxelib run lime build ios -clean -nosign
-      - name: Create Ipa
+
+      - name: Create IPA
         run: |
           cd export/release/ios/build/*-iphoneos
           mkdir Payload
           mv *.app Payload
           zip -r CodenameEngine.ipa Payload
+          mv CodenameEngine.ipa ../../Release-iphoneos/
+
       - name: Upload Artifact
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v4
         with:
-          name: CodenameEngine iOS
-          path: export/release/ios/build/Release-iphoneos/*.ipa
+          name: CodenameEngine-iOS
+          path: export/release/ios/build/Release-iphoneos/CodenameEngine.ipa
           if-no-files-found: error
