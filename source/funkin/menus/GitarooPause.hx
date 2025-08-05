@@ -45,11 +45,6 @@ class GitarooPause extends MusicBeatState
 
 		changeThing();
 
-        #if mobile
-		addVPad(LEFT_RIGHT, A);
-		addVPadCamera();
-		#end
-
 		super.create();
 	}
 
@@ -69,9 +64,7 @@ class GitarooPause extends MusicBeatState
 				}
 				else
 				{
-					PlayState.resetSongInfos();
 					if (Charter.instance != null) Charter.instance.__clearStatics();
-
 					FlxG.switchState(new MainMenuState());
 				}
 			}

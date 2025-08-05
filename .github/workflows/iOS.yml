@@ -1,4 +1,5 @@
 name: Build iOS App
+
 on:
   push:
     branches: [ main, master ]
@@ -9,120 +10,52 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive # In case you have git submodules
-    
-    - name: Setup Haxe 3.4.7
+
+    - name: Setup Haxe
       run: |
-        # Download and install Haxe 3.4.7
-        curl -L https://github.com/HaxeFoundation/haxe/releases/download/3.4.7/haxe-3.4.7-osx.tar.gz -o haxe.tar.gz
-        tar -xzf haxe.tar.gz
-        sudo mkdir -p /usr/local/haxe
-        sudo mv haxe-3.4.7/* /usr/local/haxe/
-        sudo ln -sf /usr/local/haxe/haxe /usr/local/bin/haxe
-        sudo ln -sf /usr/local/haxe/haxelib /usr/local/bin/haxelib
-        
-        # Verify installation
-        which haxe
-        haxe -version
-        
-        # Setup haxelib directory
+        brew install haxe
+
+    - name: Setup Haxelib
+      run: |
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
-    
-    - name: Cache Haxelib Dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/haxelib
-        key: haxelib-${{ runner.os }}-${{ hashFiles('**/Project.xml') }}
-        restore-keys: |
-          haxelib-${{ runner.os }}-
-    
-    - name: Install Haxe Dependencies
+
+    - name: Install Haxe dependencies
       run: |
-        # Install dependencies in correct order
-        haxelib install lime 2.9.1 --quiet
-        haxelib install openfl 3.6.1 --quiet
-        haxelib install flixel 4.3.0 --quiet
-        haxelib install flixel-ui 2.3.0 --quiet
-        haxelib install flixel-addons 2.6.0 --quiet
-        haxelib install away3d 1.0.0 --quiet
-        haxelib install format 3.3.0 --quiet
-        haxelib install flxanimate 3.0.4 --quiet
-        haxelib install nape 2.0.20 --quiet
-        haxelib install markdown 1.0.0 --quiet
-        
-        # Install git dependencies
-        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved --quiet
-        
-        # Setup lime
+        haxelib install lime
+        haxelib install openfl
+        haxelib install flixel 
+        haxelib install flixel-ui
+        haxelib install flixel-addons
+        haxelib git hscript-improved https://github.com/FNF-CNE-Devs/hscript-improved
         haxelib run lime setup -y
-        
-        # List installed libraries for debugging
-        haxelib list
-    
-    - name: Setup iOS Development Environment
+        haxelib install away3d
+        haxelib install format
+        haxelib install flxanimate
+        haxelib install nape-haxe4
+        haxelib install markdown
+    - name: Setup iOS
       run: |
-        # Setup iOS tools
         haxelib run lime setup ios -y
-        
-        # Verify Xcode installation
-        xcode-select --print-path
-        xcrun --show-sdk-path --sdk iphoneos
-        
-        # Accept Xcode license (if needed)
-        sudo xcodebuild -license accept || true
-    
-    - name: Build iOS App
+
+    - name: Build iOS
       run: |
-        # Clean previous builds
-        haxelib run lime clean ios
-        
-        # Build for iOS without code signing
-        haxelib run lime build ios -release -nosign -verbose
-      env:
-        # Ensure we're using the correct iOS SDK
-        DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
-    
-    - name: List Build Output (Debug)
-      run: |
-        echo "Listing export directory structure:"
-        find export -type f -name "*.ipa" -o -name "*.app" | head -20
-        
-        echo "iOS build directory:"
-        ls -la export/ios/build/ || echo "Build directory not found"
-        
-        echo "Release directories:"
-        ls -la export/ios/build/Release-* || echo "Release directories not found"
-    
-    - name: Upload IPA (if exists)
+        haxelib run lime build ios -release -nosign
+
+    - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
-        name: ios-ipa
-        path: |
-          export/ios/build/Release-iphoneos/*.ipa
-          export/ios/*.ipa
+        name: ios-app
+        path: export/ios/build/Release-iphoneos/*.ipa
         if-no-files-found: warn
-    
-    - name: Upload iOS App Bundle
+
+    - name: Upload Simulator App (fallback)
       uses: actions/upload-artifact@v4
       with:
-        name: ios-app-bundle
-        path: |
-          export/ios/build/Release-iphoneos/*.app
-          export/ios/build/Release-iphonesimulator/*.app
-        if-no-files-found: warn
-    
-    - name: Upload Build Logs (on failure)
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-logs
-        path: |
-          export/ios/build/Logs/
-          ~/Library/Logs/
+        name: ios-simulator-app
+        path: export/ios/build/Release-iphonesimulator/*.app
         if-no-files-found: ignore

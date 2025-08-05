@@ -2,10 +2,6 @@ import funkin.ui.FunkinText;
 import flixel.text.FlxText;
 import flixel.text.FlxTextBorderStyle;
 import flixel.util.FlxAxes;
-#if mobile
-import funkin.mobile.controls.FlxDPadMode;
-import funkin.mobile.controls.FlxActionMode;
-#end
 
 var pixelScript:Script = game.scripts.getByName("pixel.hx");
 var pauseCam = new FlxCamera();
@@ -21,7 +17,7 @@ function create(event) {
 	// cancel default pause menu!!
 	event.cancel();
 
-	event.music = isThorns ? "pixel/LunchboxScary" : "pixel/Lunchbox";
+	event.music = isThorns ? "pixel/LunchboxScary" : "pixel/breakfast";
 
 	// allowing this pause script even if the pixel script is not loaded  - Nex
 	pixelScript?.call("pixelCam", [pauseCam]);
@@ -59,10 +55,6 @@ function create(event) {
 
 
 	FlxG.sound.play(Paths.sound(isThorns ? 'pixel/ANGRY' : 'pixel/clickText'));
-	#if mobile
-	addVPad(FlxDPadMode.UP_DOWN, FlxActionMode.A);
-	addVPadCamera();
-	#end
 }
 
 function confText(text) {
@@ -114,20 +106,7 @@ function enterOption() if (canDoShit) {
 			canDoShit = false;
 			for(t in texts) t.visible = false;
 			hand.visible = songText.visible = false;
-			FlxTween.tween(bg, {"scale.y": 0}, 0.125, {ease: FlxEase.cubeOut, onComplete: function() {
-				selectOption();
-			}});
-		} else {
-			selectOption();
-		}
+			FlxTween.tween(bg.scale, {y: 0}, 0.125, {ease: FlxEase.cubeOut, onComplete: selectOption});
+		default: selectOption();
 	}
-}
-
-function changeSelection(change) {  // this overrides the function inside of the normal pause btw, so no event gets called  - Nex
-	curSelected += change;
-
-	if (curSelected < 0)
-		curSelected = menuItems.length - 1;
-	if (curSelected >= menuItems.length)
-		curSelected = 0;
 }

@@ -1,20 +1,13 @@
 package funkin.backend.system.modules;
 
-import lime.system.System;
 import funkin.backend.utils.NativeAPI;
-import openfl.Lib;
-import openfl.events.UncaughtErrorEvent;
-import openfl.events.ErrorEvent;
-import openfl.errors.Error;
-import openfl.events.UncaughtErrorEvent;
 import haxe.CallStack;
+import openfl.Lib;
+import openfl.errors.Error;
+import openfl.events.ErrorEvent;
+import openfl.events.UncaughtErrorEvent;
 
-#if sys
-import sys.FileSystem;
-import sys.io.File;
-#end
-
-class CrashHandler {
+final class CrashHandler {
 	public static function init() {
 		Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUncaughtError);
 		#if cpp
@@ -25,16 +18,12 @@ class CrashHandler {
 	}
 
 	public static function onUncaughtError(e:UncaughtErrorEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		e.stopImmediatePropagation();
-
 		var m:String = e.error;
 		if (Std.isOfType(e.error, Error)) {
-			var err = cast(e.error, Error);
+			var err:Error = cast e.error;
 			m = '${err.message}';
 		} else if (Std.isOfType(e.error, ErrorEvent)) {
-			var err = cast(e.error, ErrorEvent);
+			var err:ErrorEvent = cast e.error;
 			m = '${err.text}';
 		}
 		var stack = CallStack.exceptionStack();
@@ -58,9 +47,12 @@ class CrashHandler {
 			stackLabel += "\r\n";
 		}
 
+		e.preventDefault();
+		e.stopPropagation();
+		e.stopImmediatePropagation();
+
 		NativeAPI.showMessageBox("Codename Engine Crash Handler", 'Uncaught Error:$m\n\n$stackLabel', MSG_ERROR);
 		#if sys
-		saveErrorMessage('$m\n\n$stackLabel');
 		Sys.exit(1);
 		#end
 	}
@@ -69,20 +61,6 @@ class CrashHandler {
 	private static function onError(message:Dynamic):Void
 	{
 		throw Std.string(message);
-	}
-	#end
-
-	#if sys
-	private static function saveErrorMessage(message:String):Void 
-	{
-		try {
-			if (!FileSystem.exists(Sys.getCwd() + 'crash'))
-				FileSystem.createDirectory(Sys.getCwd() + 'crash');
-
-			File.saveContent(Sys.getCwd() + 'crash/'
-				+ Date.now().toString().replace(' ', '-').replace(':', "'")
-				+ '.log', message);
-		}
 	}
 	#end
 }

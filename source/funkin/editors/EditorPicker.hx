@@ -1,38 +1,47 @@
 package funkin.editors;
 
-import flixel.math.FlxPoint;
 import flixel.effects.FlxFlicker;
+import flixel.math.FlxPoint;
 
 class EditorPicker extends MusicBeatSubstate {
 	public var bg:FlxSprite;
 
+	// Name is for backwards compatibility, don't use it, use id instead
 	public var options:Array<Editor> = [
 		{
 			name: "Chart Editor",
-			iconID: 0,
+			id: "chart",
 			state: funkin.editors.charter.CharterSelection
 		},
 		{
 			name: "Character Editor",
-			iconID: 1,
+			id: "character",
 			state: funkin.editors.character.CharacterSelection
 		},
 		{
 			name: "Stage Editor",
-			iconID: 2,
-			state: null
+			id: "stage",
+			state: funkin.editors.stage.StageSelection
 		},
-		#if debug
+		{
+			name: "Alphabet Editor",
+			id: "alphabet",
+			state: funkin.editors.alphabet.AlphabetSelection
+		},
+		#if (debug || debug_ui)
 		{
 			name: "UI Debug State",
-			iconID: 3,
+			id: "uiDebug",
 			state: UIDebugState
 		},
 		#end
 		{
-			name: "Debug Options",
-			iconID: 4,
-			state: DebugOptions
+			name: "Wiki",
+			id: "wiki",
+			state: null,
+			onClick: function() {
+				CoolUtil.openURL(Flags.URL_WIKI);
+			}
 		}
 	];
 
@@ -66,18 +75,15 @@ class EditorPicker extends MusicBeatSubstate {
 
 		optionHeight = FlxG.height / options.length;
 		for(k=>o in options) {
-			var spr = new EditorPickerOption(o.name, o.iconID, optionHeight);
+			var visualName = (o.id != null) ? TU.translate("editor." + o.id + ".name") : o.name;
+			var spr = new EditorPickerOption(visualName, o.id, optionHeight);
 			spr.y = k * optionHeight;
 			add(spr);
 			sprites.push(spr);
 		}
 		sprites[0].selected = true;
 
-		#if desktop FlxG.mouse.getScreenPosition(subCam, oldMousePos); #end
-		#if mobile
-		addVPad(UP_DOWN, A_B);
-		addVPadCamera();
-		#end
+		FlxG.mouse.getScreenPosition(subCam, oldMousePos);
 	}
 
 	public override function update(elapsed:Float) {
@@ -92,17 +98,17 @@ class EditorPicker extends MusicBeatSubstate {
 		}
 		changeSelection(-FlxG.mouse.wheel + (controls.UP_P ? -1 : 0) + (controls.DOWN_P ? 1 : 0));
 
-        #if desktop
 		FlxG.mouse.getScreenPosition(subCam, curMousePos);
 		if (curMousePos.x != oldMousePos.x || curMousePos.y != oldMousePos.y) {
 			oldMousePos.set(curMousePos.x, curMousePos.y);
 			curSelected = -1;
 			changeSelection(Std.int(curMousePos.y / optionHeight)+1);
 		}
-		#end
 
-		if (controls.ACCEPT #if desktop || FlxG.mouse.justReleased #end) {
-			if (options[curSelected].state != null) {
+		if (controls.ACCEPT || FlxG.mouse.justReleased) {
+			if(options[curSelected].onClick != null)
+				options[curSelected].onClick();
+			else if (options[curSelected].state != null) {
 				selected = true;
 				CoolUtil.playMenuSFX(CONFIRM);
 
@@ -120,17 +126,12 @@ class EditorPicker extends MusicBeatSubstate {
 					});
 				});
 			} else {
-				CoolUtil.openURL("https://www.youtube.com/watch?v=9Youam7GYdQ");
+				CoolUtil.openURL(Flags.URL_EDITOR_FALLBACK);
 			}
-		}
 
-		if (controls.BACK) {
-            #if mobile
-			FlxG.resetState();
-			#else
-			close();
-			#end
 		}
+		if (controls.BACK)
+			close();
 	}
 
 	override function destroy() {
@@ -156,8 +157,9 @@ class EditorPicker extends MusicBeatSubstate {
 
 typedef Editor = {
 	var name:String;
-	var iconID:Int;
+	var id:String;
 	var state:Class<MusicBeatState>;
+	var ?onClick:Void->Void;
 }
 
 class EditorPickerOption extends FlxTypedSpriteGroup<FlxSprite> {
@@ -171,24 +173,21 @@ class EditorPickerOption extends FlxTypedSpriteGroup<FlxSprite> {
 	public var selectionLerp:Float = 0;
 
 	public var iconRotationCycle:Float = 0;
-	public function new(name:String, iconID:Int, height:Float) {
+	public function new(name:String, iconID:String, height:Float) {
 		super();
-
 
 		FlxG.mouse.visible = true;
 		iconSpr = new FlxSprite();
-		iconSpr.loadGraphic(Paths.image('editors/icons'), true, 128, 128);
-		iconSpr.animation.add("icon", [iconID], 24, true);
-		iconSpr.animation.play("icon");
+		if(iconID != null)
+			iconSpr.loadGraphic(Paths.image('editors/icons/$iconID'));
+		else
+			iconSpr.exists = false;
 		iconSpr.antialiasing = true;
-		if (height < 150) {
-			iconSpr.scale.set(height / 150, height / 150);
-			iconSpr.updateHitbox();
-		}
+		iconSpr.setUnstretchedGraphicSize(110, 110, false);
 		iconSpr.x = 25 + ((height - iconSpr.width) / 2);
 		iconSpr.y = (height - iconSpr.height) / 2;
 
-		label = new Alphabet(25 + iconSpr.width + 25, 0, name, true);
+		label = new Alphabet(25 + iconSpr.width + 25, 0, name, "bold");
 		label.y = (height - label.height) / 2;
 
 		selectionBG = new FlxSprite().makeGraphic(1, 1, -1);
