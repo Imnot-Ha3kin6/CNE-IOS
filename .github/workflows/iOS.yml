@@ -25,13 +25,22 @@ jobs:
       - name: Install Libraries
         run: |
           haxe -cp commandline -D analyzer-optimize --run Main setup -s
-          haxelib remove lime
+          # Remove existing libraries to avoid conflicts
+          haxelib remove lime --quiet || true
+          haxelib remove flixel --quiet || true
+          haxelib remove flixel-addons --quiet || true
+          haxelib remove openfl --quiet || true
+          # Install compatible versions
           haxelib git lime https://github.com/moxie-coder/lime-8.2.2 --quiet
-          haxelib remove flixel-addons
-          haxelib git flixel-addons https://github.com/HaxeFlixel/flixel-addons
-      - name: Update library dependencies
+          haxelib install flixel 5.8.0 --quiet
+          haxelib git flixel-addons https://github.com/HaxeFlixel/flixel-addons --quiet
+          haxelib install openfl 9.3.3 --quiet
+          # Set active versions
+          haxelib set flixel 5.8.0
+          haxelib set openfl 9.3.3
+      - name: Verify library versions
         run: |
-          haxelib update
+          haxelib list
       - name: Compile
         run: haxelib run lime build ios -clean -nosign
       - name: Create Ipa

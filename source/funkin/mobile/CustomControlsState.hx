@@ -57,21 +57,22 @@ class CustomControlsState extends MusicBeatSubstate {
 
         exitButton = createUIButton(FlxG.width - 650, 25, 'exit', () -> close());
         exitButton.setGraphicSize(125, 50);
-	exitButton.updateHitbox();
-
+        exitButton.updateHitbox();
 
         var saveButton = createUIButton(exitButton.x + exitButton.width + 25, 25, 'exit and save', () -> {
             save();
             close();
         });
         saveButton.setGraphicSize(250, 50);
-	saveButton.updateHitbox();
+        saveButton.updateHitbox();
+        
         exportButton = createUIButton(FlxG.width - 150, 25, 'export', () -> savetoclipboard(_pad));
         exportButton.setGraphicSize(125, 50);
-	exportButton.updateHitbox();
+        exportButton.updateHitbox();
+        
         importButton = createUIButton(exportButton.x, 100, 'import', () -> loadfromclipboard(_pad));
         importButton.setGraphicSize(125, 50);
-	importButton.updateHitbox();
+        importButton.updateHitbox();
 
         for (button in [exitButton, saveButton, exportButton, importButton]) add(button);
 
@@ -155,18 +156,18 @@ class CustomControlsState extends MusicBeatSubstate {
 
     function trackButton(touch:flixel.input.touch.FlxTouch) {
         if (buttonIsTouched) {
-            if (bindButton.justReleased && touch.justReleased) {
+            if (bindButton != null && bindButton.justReleased && touch.justReleased) {
                 bindButton = null;
                 buttonIsTouched = false;
-            } else {
+            } else if (bindButton != null) {
                 moveButton(touch, bindButton);
                 setButtonTexts();
             }
         } else {
-            if (_pad.buttonUp.justPressed) handleButtonPress(touch, _pad.buttonUp);
-            if (_pad.buttonDown.justPressed) handleButtonPress(touch, _pad.buttonDown);
-            if (_pad.buttonRight.justPressed) handleButtonPress(touch, _pad.buttonRight);
-            if (_pad.buttonLeft.justPressed) handleButtonPress(touch, _pad.buttonLeft);
+            if (_pad.buttonUp != null && _pad.buttonUp.justPressed) handleButtonPress(touch, _pad.buttonUp);
+            if (_pad.buttonDown != null && _pad.buttonDown.justPressed) handleButtonPress(touch, _pad.buttonDown);
+            if (_pad.buttonRight != null && _pad.buttonRight.justPressed) handleButtonPress(touch, _pad.buttonRight);
+            if (_pad.buttonLeft != null && _pad.buttonLeft.justPressed) handleButtonPress(touch, _pad.buttonLeft);
         }
     }
 
@@ -183,10 +184,10 @@ class CustomControlsState extends MusicBeatSubstate {
     }
 
     function setButtonTexts() {
-        upText.text = 'Button up x:' + _pad.buttonUp.x + ' y:' + _pad.buttonUp.y;
-        downText.text = 'Button down x:' + _pad.buttonDown.x + ' y:' + _pad.buttonDown.y;
-        leftText.text = 'Button left x:' + _pad.buttonLeft.x + ' y:' + _pad.buttonLeft.y;
-        rightText.text = 'Button right x:' + _pad.buttonRight.x + ' y:' + _pad.buttonRight.y;
+        if (_pad.buttonUp != null) upText.text = 'Button up x:' + _pad.buttonUp.x + ' y:' + _pad.buttonUp.y;
+        if (_pad.buttonDown != null) downText.text = 'Button down x:' + _pad.buttonDown.x + ' y:' + _pad.buttonDown.y;
+        if (_pad.buttonLeft != null) leftText.text = 'Button left x:' + _pad.buttonLeft.x + ' y:' + _pad.buttonLeft.y;
+        if (_pad.buttonRight != null) rightText.text = 'Button right x:' + _pad.buttonRight.x + ' y:' + _pad.buttonRight.y;
     }
 
     function save() {
@@ -194,15 +195,22 @@ class CustomControlsState extends MusicBeatSubstate {
         if (curSelected == 3) saveCustom();
     }
 
-    function saveCustom()
+    function saveCustom() {
         config.savecustom(_pad);
+    }
 
-    function loadCustom():Void
+    function loadCustom():Void {
         _pad = config.loadcustom(_pad);
+    }
 
     function savetoclipboard(pad:FlxVirtualPad) {
         var json = { buttonsarray: [] };
-        for (button in pad) json.buttonsarray.push(FlxPoint.get(button.x, button.y));
+        var buttons = [pad.buttonUp, pad.buttonDown, pad.buttonLeft, pad.buttonRight];
+        for (button in buttons) {
+            if (button != null) {
+                json.buttonsarray.push({x: button.x, y: button.y});
+            }
+        }
         openfl.system.System.setClipboard(Json.stringify(json).trim());
     }
 
@@ -211,15 +219,26 @@ class CustomControlsState extends MusicBeatSubstate {
         var cbText:String = Clipboard.text;
         if (!cbText.endsWith('}')) return;
 
-        var json = Json.parse(cbText);
-        for (i in 0...pad.length) {
-            pad.x = json.buttonsarray[i].x;
-            pad.y = json.buttonsarray[i].y;
+        try {
+            var json = Json.parse(cbText);
+            var buttons = [pad.buttonUp, pad.buttonDown, pad.buttonLeft, pad.buttonRight];
+            
+            if (json.buttonsarray != null && json.buttonsarray.length > 0) {
+                for (i in 0...Std.int(Math.min(buttons.length, json.buttonsarray.length))) {
+                    if (buttons[i] != null && json.buttonsarray[i] != null) {
+                        buttons[i].x = json.buttonsarray[i].x;
+                        buttons[i].y = json.buttonsarray[i].y;
+                    }
+                }
+                setButtonTexts();
+            }
+        } catch (e:Dynamic) {
+            trace("Error parsing clipboard data: " + e);
         }
-        setButtonTexts();
     }
 
-    override function destroy()
+    override function destroy() {
         super.destroy();
+    }
 }
 #end
