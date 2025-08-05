@@ -172,7 +172,7 @@
 
 	<haxedef name="no-deprecation-warnings"/>
 	<haxedef name="DISCORD_DISABLE_IO_THREAD" if="DISCORD_RPC"/>
-
+        <classpath path="fixes" />
 	<haxelib name="flixel" />
 	<haxelib name="flixel-addons" />
 	<haxelib name="flixel-ui" if="android" />
