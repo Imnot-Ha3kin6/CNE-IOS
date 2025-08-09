@@ -24,13 +24,15 @@ jobs:
         mkdir -p ~/haxelib
         haxelib setup ~/haxelib
 
-    - name: Install Haxe dependencies
+    - name: Run update.sh to install dependencies
       run: |
-       
-    - name: Rebuild for ARM64
+        chmod +x ./update.sh
+        ./update.sh
+
+    - name: Rebuild for ARM64 (iOS)
       run: |
-        haxelib run lime rebuild lime macos
-        haxelib run lime rebuild hxcpp macos
+        haxelib run lime rebuild lime ios
+        haxelib run lime rebuild hxcpp ios
 
     - name: Setup iOS
       run: |
