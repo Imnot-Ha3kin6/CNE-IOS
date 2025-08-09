@@ -14,6 +14,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Restore Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/haxelib
+            export/ios/haxe
+            export/ios/obj
+          key: ios-haxe-${{ runner.os }}-${{ hashFiles('**/*.hxml') }}
+          restore-keys: |
+            ios-haxe-${{ runner.os }}-
+
       - name: Setup Haxe (ARM-friendly)
         run: |
           brew update
@@ -38,8 +49,17 @@ jobs:
           haxelib install hxdiscord_rpc
           haxelib git flxanimate https://github.com/CodenameCrew/flxanimate
 
-      - name: Compile iOS
-        run: haxelib run lime build ios -final -clean
+      - name: Compile iOS (No Signing)
+        run: haxelib run lime build ios -final -clean -nosign
+
+      - name: Save Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/haxelib
+            export/ios/haxe
+            export/ios/obj
+          key: ios-haxe-${{ runner.os }}-${{ hashFiles('**/*.hxml') }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
