@@ -16,8 +16,8 @@ jobs:
       run: |
         brew install haxe
         haxelib setup ~/haxelib
-        haxelib install lime
-        haxelib install openfl  
+        haxelib install lime 8.1.2
+        haxelib install openfl
         haxelib install hxcpp
         if [ -f "./update.sh" ]; then chmod +x ./update.sh && ./update.sh; fi
         
