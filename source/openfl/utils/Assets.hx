@@ -91,7 +91,7 @@ class Assets
 		@usage		var bitmap = new Bitmap (Assets.getBitmapData ("image.png"));
 		@param	id		The ID or asset path for the bitmap
 		@param	useCache		(Optional) Whether to allow use of the asset cache (Default: true)
-		@param	useCache		Whenever the image should be immediately pushed to GPU.
+		@param	pushToGPU		Whenever the image should be immediately pushed to GPU.
 		@return		A new BitmapData object
 	**/
 	public static function getBitmapData(id:String, useCache:Bool = true, pushToGPU:Bool = true):BitmapData
@@ -241,18 +241,21 @@ class Assets
 		return null;
 	}
 
-	public static function getMusic(id:String, useCache:Bool = true):Sound
+	public static function getMusic(id:String, useCache:Bool = true, staticFallback:Bool = true):Sound
 	{
-		#if (lime_vorbis && lime > "7.9.0")
-		var path = getPath(id);
-		// TODO: What if it is a WAV or non-Vorbis file?
-		var vorbisFile = VorbisFile.fromFile(path);
-		var buffer = AudioBuffer.fromVorbisFile(vorbisFile);
-		return Sound.fromAudioBuffer(buffer);
-		#else
-		// TODO: Streaming sound
-		return getSound(id, useCache);
+		if (useCache && staticFallback && cache.enabled && cache.hasSound(id)) {
+			var sound = cache.getSound(id);
+			if (isValidSound(sound)) return sound;
+		}
+		#if (lime_vorbis && lime > "7.9.0" && !macro)
+		if (Options.streamedMusic) {
+			var path = getPath(id);
+			// TODO: What if it is a WAV or non-Vorbis file?
+			var vorbisFile = VorbisFile.fromFile(path);
+			if (vorbisFile != null) return Sound.fromAudioBuffer(AudioBuffer.fromVorbisFile(vorbisFile));
+		}
 		#end
+		return if (staticFallback) getSound(id, useCache); else null;
 	}
 
 	/**

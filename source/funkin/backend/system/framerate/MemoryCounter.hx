@@ -1,13 +1,13 @@
 package funkin.backend.system.framerate;
 
-import openfl.text.TextFormat;
 import openfl.display.Sprite;
 import openfl.text.TextField;
+import openfl.text.TextFormat;
 
 class MemoryCounter extends Sprite {
 	public var memoryText:TextField;
 	public var memoryPeakText:TextField;
-	
+
 	public var memory:Float = 0;
 	public var memoryPeak:Float = 0;
 
@@ -21,13 +21,16 @@ class MemoryCounter extends Sprite {
 			label.autoSize = LEFT;
 			label.x = 0;
 			label.y = 0;
-			label.text = "FPS";
+			label.text = "MEM";
 			label.multiline = label.wordWrap = false;
 			label.defaultTextFormat = new TextFormat(Framerate.fontName, 12, -1);
+			label.selectable = false;
 			addChild(label);
 		}
 		memoryPeakText.alpha = 0.5;
 	}
+
+	public function reload() {}
 
 	public override function __enterFrame(t:Int) {
 		if (alpha <= 0.05) return;

@@ -3,6 +3,10 @@ package funkin.game;
 import flixel.util.FlxSort;
 import funkin.backend.system.Conductor;
 
+/**
+ * Group of notes, that handles updating and rendering only the visible notes.
+ * To only get the visible notes you gotta do `group.forEach()` or `group.forEachAlive()` instead of `group.members`.
+**/
 class NoteGroup extends FlxTypedGroup<Note> {
 	var __loopSprite:Note;
 	var i:Int = 0;
@@ -10,9 +14,9 @@ class NoteGroup extends FlxTypedGroup<Note> {
 	var __time:Float = -1.0;
 
 	/**
-	 * How many ms it should show a note before it should be hit
+	 * How many milliseconds it should show a note before it should be hit
 	 **/
-	public var limit:Float = 1500;
+	public var limit:Float = Flags.DEFAULT_NOTE_MS_LIMIT;
 
 	/**
 	 * Preallocates the members array with nulls, but if theres anything in the array already it clears it
@@ -22,11 +26,17 @@ class NoteGroup extends FlxTypedGroup<Note> {
 		length = len;
 	}
 
+	/**
+	 * Adds an array of notes to the group, and sorts them.
+	**/
 	public inline function addNotes(notes:Array<Note>) {
 		for(e in notes) add(e);
 		sortNotes();
 	}
 
+	/**
+	 * Sorts the notes in the group.
+	**/
 	public inline function sortNotes() {
 		sort(function(i, n1, n2) {
 			if (n1.strumTime == n2.strumTime)
@@ -34,10 +44,16 @@ class NoteGroup extends FlxTypedGroup<Note> {
 			return FlxSort.byValues(FlxSort.DESCENDING, n1.strumTime, n2.strumTime);
 		});
 	}
+
+	@:dox(hide) public var __forcedSongPos:Null<Float> = null;
+
+	@:dox(hide) private inline function __getSongPos()
+		return __forcedSongPos == null ? Conductor.songPosition : __forcedSongPos;
+
 	public override function update(elapsed:Float) {
 		i = length-1;
 		__loopSprite = null;
-		__time = Conductor.songPosition;
+		__time = __getSongPos();
 		while(i >= 0) {
 			__loopSprite = members[i--];
 			if (__loopSprite == null || !__loopSprite.exists || !__loopSprite.active) {
@@ -49,16 +65,16 @@ class NoteGroup extends FlxTypedGroup<Note> {
 		}
 	}
 
-	public override function draw() {
-		@:privateAccess var oldDefaultCameras = FlxCamera._defaultCameras;
-		@:privateAccess if (cameras != null) FlxCamera._defaultCameras = cameras;
+	public override function draw() @:privateAccess {
+		var oldDefaultCameras = FlxCamera._defaultCameras;
+		if (_cameras != null) FlxCamera._defaultCameras = _cameras;
 
 		var oldCur = __currentlyLooping;
 		__currentlyLooping = true;
 
 		i = length-1;
 		__loopSprite = null;
-		__time = Conductor.songPosition;
+		__time = __getSongPos();
 		while(i >= 0) {
 			__loopSprite = members[i--];
 			if (__loopSprite == null || !__loopSprite.exists || !__loopSprite.visible)
@@ -68,7 +84,7 @@ class NoteGroup extends FlxTypedGroup<Note> {
 		}
 		__currentlyLooping = oldCur;
 
-		@:privateAccess FlxCamera._defaultCameras = oldDefaultCameras;
+		FlxCamera._defaultCameras = oldDefaultCameras;
 	}
 
 	/**
@@ -81,7 +97,7 @@ class NoteGroup extends FlxTypedGroup<Note> {
 	public override function forEach(noteFunc:Note->Void, recursive:Bool = false) {
 		i = length-1;
 		__loopSprite = null;
-		__time = Conductor.songPosition;
+		__time = __getSongPos();
 
 		var oldCur = __currentlyLooping;
 		__currentlyLooping = true;
@@ -106,12 +122,12 @@ class NoteGroup extends FlxTypedGroup<Note> {
 		if (members == null)
 			return null;
 
-		var index:Int = members.indexOfFromLast(Object);
+		var index:Int = members.lastIndexOf(Object);
 
 		if (index < 0)
 			return null;
 
-		// doesnt prevent looping from breaking
+		// doesn't prevent looping from breaking
 		if (Splice && __currentlyLooping && i >= index)
 			i++;
 

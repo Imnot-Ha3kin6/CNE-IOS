@@ -1,10 +1,9 @@
 package funkin.backend.scripting;
 
-import haxe.io.Path;
+import hscript.*;
 import hscript.Expr.Error;
 import hscript.Parser;
 import openfl.Assets;
-import hscript.*;
 
 class HScript extends Script {
 	public var interp:Interp;
@@ -17,7 +16,7 @@ class HScript extends Script {
 	public static function initParser() {
 		var parser = new Parser();
 		parser.allowJSON = parser.allowMetadata = parser.allowTypes = true;
-		parser.preprocesorValues = Script.getDefaultPreprocessors();
+		parser.preprocessorValues = Script.getDefaultPreprocessors();
 		return parser;
 	}
 
@@ -28,7 +27,7 @@ class HScript extends Script {
 
 		try {
 			if(Assets.exists(rawPath)) code = Assets.getText(rawPath);
-		} catch(e) Logs.trace('Error while reading $path: ${Std.string(e)}', ERROR);
+		} catch(e) Logs.error('Error while reading $path: ${Std.string(e)}');
 
 		parser = initParser();
 		//folderlessPath = Path.directory(path);
@@ -65,7 +64,13 @@ class HScript extends Script {
 	}
 
 	private function importFailedCallback(cl:Array<String>):Bool {
-		var assetsPath = 'assets/source/${cl.join("/")}';
+		if(_importFailedCallback(cl, "source/") || _importFailedCallback(cl, "")) {
+			return true;
+		}
+		return false;
+	}
+	private function _importFailedCallback(cl:Array<String>, prefix:String):Bool {
+		var assetsPath = 'assets/$prefix${cl.join("/")}';
 		for(hxExt in ["hx", "hscript", "hsc", "hxs"]) {
 			var p = '$assetsPath.$hxExt';
 			if (__importedPaths.contains(p))
@@ -74,8 +79,10 @@ class HScript extends Script {
 				var code = Assets.getText(p);
 				var expr:Expr = null;
 				try {
-					if (code != null && code.trim() != "")
+					if (code != null && code.trim() != "") {
+						parser.line = 1; // fun fact: this is all you need to reuse a parser without issues. all the other vars get reset on parse.
 						expr = parser.parseString(code, cl.join("/") + "." + hxExt);
+					}
 				} catch(e:Error) {
 					_errorHandler(e);
 				} catch(e) {
@@ -94,11 +101,15 @@ class HScript extends Script {
 
 	private function _errorHandler(error:Error) {
 		var fileName = error.origin;
+		var oldfn = '$fileName:${error.line}: ';
 		if(remappedNames.exists(fileName))
 			fileName = remappedNames.get(fileName);
 		var fn = '$fileName:${error.line}: ';
 		var err = error.toString();
-		if (err.startsWith(fn)) err = err.substr(fn.length);
+		while(err.startsWith(oldfn) || err.startsWith(fn)) {
+			if (err.startsWith(oldfn)) err = err.substr(oldfn.length);
+			if (err.startsWith(fn)) err = err.substr(fn.length);
+		}
 
 		Logs.traceColored([
 			Logs.logText(fn, GREEN),
@@ -117,6 +128,10 @@ class HScript extends Script {
 			interp.execute(expr);
 			call("new", []);
 		}
+
+		#if GLOBAL_SCRIPT
+		funkin.backend.scripting.GlobalScript.call("onScriptSetup", [this, "hscript"]);
+		#end
 	}
 
 	public override function reload() {

@@ -1,11 +1,15 @@
 export/
 dump/
-latest/windows/obj/
-latest/windows/haxe/
+latest/*
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 .haxelib/
 pages/
 docs/doc.xml
-mods/Baldi's Basics in Funkin'/
+mods/*
+addons/*
+!mods/readme.txt
+addons/*
+!addons/readme.txt
+dev-libs/

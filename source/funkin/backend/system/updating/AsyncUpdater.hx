@@ -1,19 +1,17 @@
 package funkin.backend.system.updating;
 
-import openfl.Lib;
-import sys.io.Process;
-import haxe.zip.Reader;
+import funkin.backend.system.github.GitHubRelease;
 import funkin.backend.utils.ZipUtil;
 import haxe.io.Path;
-import openfl.utils.ByteArray;
-import sys.io.File;
-import sys.io.FileOutput;
+import openfl.Lib;
 import openfl.events.Event;
 import openfl.events.ProgressEvent;
-import openfl.net.URLRequest;
 import openfl.net.URLLoader;
+import openfl.net.URLRequest;
+import openfl.utils.ByteArray;
 import sys.FileSystem;
-import funkin.backend.system.github.GitHubRelease;
+import sys.io.File;
+import sys.io.FileOutput;
 
 class AsyncUpdater {
 	// NON ASYNC STUFF
@@ -21,14 +19,14 @@ class AsyncUpdater {
 	public function new(releases:Array<GitHubRelease>) {
 		this.releases = releases;
 	}
-	
+
 	public function execute() {
 		Main.execAsync(installUpdates);
 	}
 	#end
-	
-	
-	#if windows 
+
+
+	#if windows
 	public static var executableGitHubName:String = "update-windows.exe";
 	public static var executableName:String = "CodenameEngine.exe";
 	#end
@@ -49,7 +47,7 @@ class AsyncUpdater {
 
 	public var lastTime:Float = 0;
 	public var oldBytesLoaded:Float = 0;
-	
+
 	public function installUpdates() {
 		prepareInstallationEnvironment();
 		downloadFiles();
@@ -64,7 +62,7 @@ class AsyncUpdater {
 			progress.curFileName = e;
 			trace('extracting file ${path}');
 			var reader = ZipUtil.openZip(path);
-			
+
 			progress.curZipProgress = new ZipProgress();
 			ZipUtil.uncompressZip(reader, './', null, progress.curZipProgress);
 			// FileSystem.deleteFile(path);
@@ -72,7 +70,7 @@ class AsyncUpdater {
 		if (executableReplaced = FileSystem.exists('$path$executableName')) {
 			progress.curFile = files.length;
 			progress.curFileName = executableName;
-			
+
 			var progPath = Sys.programPath();
 			var bakFile = '${Path.withoutExtension(progPath)}.bak';
 			if (FileSystem.exists(bakFile))
@@ -101,7 +99,7 @@ class AsyncUpdater {
 		progress.files = files.length;
 		progress.step = DOWNLOADING_ASSETS;
 		trace('starting assets download');
-		doFile([for(e in files) e], [for(e in fileNames) e], function() {
+		doFile(files.copy(), fileNames.copy(), function() {
 			progress.curFile = -1;
 			progress.curFileName = null;
 			progress.files = 1;
@@ -133,7 +131,7 @@ class AsyncUpdater {
 		downloadStream.addEventListener(ProgressEvent.PROGRESS, function(e) {
 			progress.bytesLoaded = e.bytesLoaded;
 			progress.bytesTotal = e.bytesTotal;
-			
+
 			var curTime = Lib.getTimer();
 
 			progress.downloadSpeed = (e.bytesLoaded - oldBytesLoaded) / ((curTime - lastTime) / 1000);
@@ -160,7 +158,7 @@ class AsyncUpdater {
 
 	public function prepareInstallationEnvironment() {
 		progress.step = PREPARING;
-		
+
 		#if windows
 		path = '${Sys.getEnv("TEMP")}\\Codename Engine\\Updater\\';
 		#else
