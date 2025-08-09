@@ -1,4 +1,11 @@
-name: Build iOS App
+- name: Setup Haxe & Libraries
+      run: |
+        brew install haxe
+        export HAXE_STD_PATH="/opt/homebrew/lib/haxe/std"
+        haxelib setup ~/haxelib
+        haxelib install lime 8.1.2
+        haxelib install openfl
+        haxelib installname: Build iOS App
 on:
   push:
     branches: [ main, master ]
@@ -8,18 +15,23 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v4
     
     - name: Setup Haxe & Libraries
       run: |
         brew install haxe
-        export HAXE_STD_PATH="/opt/homebrew/lib/haxe/std"
         haxelib setup ~/haxelib
-        haxelib install lime 8.1.2
+        haxelib install lime
         haxelib install openfl
         haxelib install hxcpp
+        if [ -f "./update.sh" ]; then chmod +x ./update.sh && ./update.sh; fi
+        
+    - name: Build iOS
+      run: |
+        haxelib run lime setup ios -y
+        haxelib run lime build ios -release -nosign hxcpp
         if [ -f "./update.sh" ]; then chmod +x ./update.sh && ./update.sh; fi
         
     - name: Rebuild Lime for ARM64
