@@ -15,6 +15,7 @@ jobs:
     - name: Setup Haxe & Libraries
       run: |
         brew install haxe
+        export HAXE_STD_PATH="/opt/homebrew/lib/haxe/std"
         haxelib setup ~/haxelib
         haxelib install lime 8.1.2
         haxelib install openfl
