@@ -1,5 +1,4 @@
 name: Build iOS App
-
 on:
   push:
     branches: [ main, master ]
@@ -10,48 +9,25 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Haxe
+    - uses: actions/checkout@v4
+    
+    - name: Setup Haxe & Libraries
       run: |
         brew install haxe
-
-    - name: Setup Haxelib
-      run: |
-        mkdir -p ~/haxelib
         haxelib setup ~/haxelib
-
-    - name: Run update.sh to install dependencies
-      run: |
-        chmod +x ./update.sh
-        ./update.sh
-
-    - name: Rebuild for ARM64 (iOS)
-      run: |
-        haxelib run lime rebuild lime ios
-        haxelib run lime rebuild hxcpp ios
-
-    - name: Setup iOS
-      run: |
-        haxelib run lime setup ios -y
-
+        haxelib install lime
+        haxelib install openfl  
+        haxelib install hxcpp
+        if [ -f "./update.sh" ]; then chmod +x ./update.sh && ./update.sh; fi
+        
     - name: Build iOS
       run: |
+        haxelib run lime setup ios -y
         haxelib run lime build ios -release -nosign
-
+        
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: ios-app
         path: export/ios/build/Release-iphoneos/*.ipa
-        if-no-files-found: warn
-
-    - name: Upload Simulator App (fallback)
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-simulator-app
-        path: export/ios/build/Release-iphonesimulator/*.app
-        if-no-files-found: ignore
