@@ -29,6 +29,7 @@ jobs:
         run: |
           haxe -cp commandline -D analyzer-optimize --run Main setup -s --lib=./libs.mobile.xml
           haxelib install lime
+          haxelib install hxcpp
       - name: Building the game
         run: haxelib run lime build ios -nosign
       - name: Clearing already existing cache
