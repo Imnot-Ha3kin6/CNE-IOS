@@ -1,14 +1,17 @@
 package funkin.menus;
 
+import haxe.Json;
+import funkin.backend.FunkinText;
+import funkin.menus.credits.CreditsMain;
 import flixel.FlxState;
 import flixel.effects.FlxFlicker;
+import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
-import funkin.backend.FunkinText;
-import funkin.backend.scripting.events.menu.MenuChangeEvent;
-import funkin.backend.scripting.events.NameEvent;
-import funkin.menus.credits.CreditsMain;
-import funkin.options.OptionsMenu;
+import flixel.util.FlxColor;
 import lime.app.Application;
+import funkin.backend.scripting.events.*;
+
+import funkin.options.OptionsMenu;
 
 using StringTools;
 
@@ -25,13 +28,10 @@ class MainMenuState extends MusicBeatState
 	var camFollow:FlxObject;
 	var versionText:FunkinText;
 
-	var devModeWarning:FunkinText;
-
-	public var canAccessDebugMenus:Bool = !Flags.DISABLE_EDITORS;
+	public var canAccessDebugMenus:Bool = true;
 
 	override function create()
 	{
-
 		super.create();
 
 		DiscordUtil.call("onMenuLoaded", ["Main Menu"]);
@@ -75,29 +75,20 @@ class MainMenuState extends MusicBeatState
 		}
 
 		FlxG.camera.follow(camFollow, null, 0.06);
+		var modsKey:String = controls.touchC ? "M" : controls.getKeyName(SWITCHMOD);
 
-		versionText = new FunkinText(5, FlxG.height - 2, 0, [
-			Flags.VERSION_MESSAGE,
-			TU.translate("mainMenu.commit", [Flags.COMMIT_NUMBER, Flags.COMMIT_HASH]),
-			TU.translate("mainMenu.openMods", [controls.getKeyName(SWITCHMOD)]),
-			''
-		].join('\n'));
+		versionText = new FunkinText(5, FlxG.height - 2, 0, 'Codename Engine v${Application.current.meta.get('version')}\nCommit ${funkin.backend.system.macros.GitCommitMacro.commitNumber} (${funkin.backend.system.macros.GitCommitMacro.commitHash})\n[$modsKey] Open Mods menu\n');
 		versionText.y -= versionText.height;
 		versionText.scrollFactor.set();
 		add(versionText);
 
 		changeItem();
 
-		devModeWarning = new FunkinText(0, FlxG.height - 50, 1280, "You have to enable DEVELOPER MODE in the miscellaneous settings!", 24);
-		devModeWarning.alignment = CENTER;
-		add(devModeWarning);
-		devModeWarning.scrollFactor.set();
-		devModeWarning.alpha = 0;
+		addTouchPad('UP_DOWN', 'A_B_M_E');
 	}
 
 	var selectedSomethin:Bool = false;
 	var forceCenterX:Bool = true;
-	var devModeCount:Int = 0;
 
 	override function update(elapsed:Float)
 	{
@@ -107,7 +98,7 @@ class MainMenuState extends MusicBeatState
 		if (!selectedSomethin)
 		{
 			if (canAccessDebugMenus) {
-				if (controls.DEV_ACCESS) {
+				if (FlxG.keys.justPressed.SEVEN #if TOUCH_CONTROLS || touchPad.buttonE.justPressed #end) {
 					persistentUpdate = false;
 					persistentDraw = true;
 					openSubState(new funkin.editors.EditorPicker());
@@ -119,17 +110,6 @@ class MainMenuState extends MusicBeatState
 					CoolUtil.safeSaveFile("chart.json", Json.stringify(funkin.backend.chart.Chart.parse("dadbattle", "hard")));
 				}
 				*/
-			}
-			if (!Options.devMode && FlxG.keys.justPressed.SEVEN) {
-				FlxG.sound.play(Paths.sound(Flags.DEFAULT_EDITOR_DELETE_SOUND));
-				if (devModeCount++ == 2) {
-					FlxTween.tween(devModeWarning, {alpha: 1}, 0.4);
-				}
-				FlxTween.completeTweensOf(devModeWarning);
-				FlxTween.color(devModeWarning, 0.2, 0xFFFF0000, 0xFFFFFFFF);
-				FlxTween.shake(devModeWarning, 0.005, 0.3);
-				devModeWarning.y = FlxG.height - 75;
-				FlxTween.tween(devModeWarning, {y: FlxG.height - 50}, 0.4);
 			}
 
 			var upP = controls.UP_P;
@@ -143,7 +123,7 @@ class MainMenuState extends MusicBeatState
 				FlxG.switchState(new TitleState());
 
 			#if MOD_SUPPORT
-			if (controls.SWITCHMOD) {
+			if (controls.SWITCHMOD #if TOUCH_CONTROLS || touchPad.buttonM.justPressed #end) {
 				openSubState(new ModSwitchMenu());
 				persistentUpdate = false;
 				persistentDraw = true;
@@ -161,6 +141,12 @@ class MainMenuState extends MusicBeatState
 		{
 			spr.screenCenter(X);
 		});
+	}
+
+	override function closeSubState() {
+		super.closeSubState();
+		removeTouchPad();
+		addTouchPad('UP_DOWN', 'A_B_M_E');
 	}
 
 	public override function switchTo(nextState:FlxState):Bool {
@@ -188,7 +174,7 @@ class MainMenuState extends MusicBeatState
 			{
 				case 'story mode': FlxG.switchState(new StoryMenuState());
 				case 'freeplay': FlxG.switchState(new FreeplayState());
-				case 'donate', 'credits': FlxG.switchState(new CreditsMain());  // kept donate for not breaking scripts, if you don't want donate to bring you to the credits menu, thats easy softcodable  - Nex
+				case 'donate', 'credits': FlxG.switchState(new CreditsMain());  // kept donate for not breaking scripts, if you dont want donate to bring you to the credits menu, thats easy softcodable  - Nex
 				case 'options': FlxG.switchState(new OptionsMenu());
 			}
 		});

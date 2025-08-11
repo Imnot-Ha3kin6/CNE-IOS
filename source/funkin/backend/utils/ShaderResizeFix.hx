@@ -2,7 +2,7 @@ package funkin.backend.utils;
 
 import openfl.display.Sprite;
 
-final class ShaderResizeFix {
+class ShaderResizeFix {
 	public static var doResizeFix:Bool = true;
 
 	public static function init() {

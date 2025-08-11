@@ -1,15 +1,24 @@
 package funkin.backend.system.framerate;
 
-import funkin.backend.system.Logs;
-import funkin.backend.utils.MemoryUtil;
 import funkin.backend.utils.native.HiddenProcess;
-#if cpp
-import cpp.Float64;
-import cpp.UInt64;
+import funkin.backend.utils.MemoryUtil;
+import funkin.backend.system.Logs;
+#if android
+import android.os.Build;
+import android.os.Build.VERSION;
 #end
 
 using StringTools;
 
+#if cpp
+#if windows
+@:cppFileCode('#include <windows.h>')
+#elseif (mac || ios)
+@:cppFileCode('#include <mach-o/arch.h>')
+#else
+@:headerInclude('sys/utsname.h')
+#end
+#end
 class SystemInfo extends FramerateCategory {
 	public static var osInfo:String = "Unknown";
 	public static var gpuName:String = "Unknown";
@@ -21,10 +30,10 @@ class SystemInfo extends FramerateCategory {
 
 	static var __formattedSysText:String = "";
 
-	public static function init() {
+	public static inline function init() {
 		#if linux
 		var process = new HiddenProcess("cat", ["/etc/os-release"]);
-		if (process.exitCode() != 0) Logs.error('Unable to grab OS Label');
+		if (process.exitCode() != 0) Logs.trace('Unable to grab OS Label', ERROR, RED);
 		else {
 			var osName = "";
 			var osVersion = "";
@@ -53,37 +62,21 @@ class SystemInfo extends FramerateCategory {
 			if (osName != "")
 				osInfo = '${osName} ${osVersion}'.trim();
 		}
-		#elseif windows
-		var windowsCurrentVersionPath = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
-		var buildNumber = Std.parseInt(RegistryUtil.get(HKEY_LOCAL_MACHINE, windowsCurrentVersionPath, "CurrentBuildNumber"));
-		var edition = RegistryUtil.get(HKEY_LOCAL_MACHINE, windowsCurrentVersionPath, "ProductName");
-
-		var lcuKey = "WinREVersion"; // Last Cumulative Update Key On Older Windows Versions
-		if (buildNumber >= 22000) { // Windows 11 Initial Release Build Number
-			edition = edition.replace("Windows 10", "Windows 11");
-			lcuKey = "LCUVer"; // Last Cumulative Update Key On Windows 11
-		}
-
-		var lcuVersion = RegistryUtil.get(HKEY_LOCAL_MACHINE, windowsCurrentVersionPath, lcuKey);
-
-		osInfo = edition;
-
-		if (lcuVersion != null && lcuVersion != "")
-			osInfo += ' ${lcuVersion}';
-		else if (lime.system.System.platformVersion != null && lime.system.System.platformVersion != "")
-			osInfo += ' ${lime.system.System.platformVersion}';
 		#else
 		if (lime.system.System.platformLabel != null && lime.system.System.platformLabel != "" && lime.system.System.platformVersion != null && lime.system.System.platformVersion != "")
 			osInfo = '${lime.system.System.platformLabel.replace(lime.system.System.platformVersion, "").trim()} ${lime.system.System.platformVersion}';
 		else
-			Logs.error('Unable to grab OS Label');
+			Logs.trace('Unable to grab OS Label', ERROR, RED);
 		#end
 
 		try {
 			#if windows
-			cpuName = RegistryUtil.get(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", "ProcessorNameString");
-			#elseif mac
-			var process = new HiddenProcess("sysctl -a | grep brand_string"); // Somehow this isn't able to use the args but it still works
+			var process = new HiddenProcess("wmic", ["cpu", "get", "name"]);
+			if (process.exitCode() != 0) throw 'Could not fetch CPU information';
+
+			cpuName = process.stdout.readAll().toString().trim().split("\n")[1].trim();
+			#elseif (mac || ios)
+			var process = new HiddenProcess("sysctl -a | grep brand_string"); // Somehow this isnt able to use the args but it still works
 			if (process.exitCode() != 0) throw 'Could not fetch CPU information';
 
 			cpuName = process.stdout.readAll().toString().trim().split(":")[1].trim();
@@ -97,12 +90,14 @@ class SystemInfo extends FramerateCategory {
 					break;
 				}
 			}
+			#elseif android
+			cpuName = (VERSION.SDK_INT >= VERSION_CODES.S) ? Build.SOC_MODEL : Build.HARDWARE;
 			#end
 		} catch (e) {
-			Logs.error('Unable to grab CPU Name: $e');
+			Logs.trace('Unable to grab CPU Name: $e', ERROR, RED);
 		}
 
-		@:privateAccess if(FlxG.renderTile) { // Blit doesn't enable the gpu. Idk if we should fix this
+		@:privateAccess {
 			if (flixel.FlxG.stage.context3D != null && flixel.FlxG.stage.context3D.gl != null) {
 				gpuName = Std.string(flixel.FlxG.stage.context3D.gl.getParameter(flixel.FlxG.stage.context3D.gl.RENDERER)).split("/")[0].trim();
 				#if !flash
@@ -111,36 +106,34 @@ class SystemInfo extends FramerateCategory {
 				#end
 
 				if(openfl.display3D.Context3D.__glMemoryTotalAvailable != -1) {
-					var vRAMBytes:Int = cast flixel.FlxG.stage.context3D.gl.getParameter(openfl.display3D.Context3D.__glMemoryTotalAvailable);
+					var vRAMBytes:UInt = cast(flixel.FlxG.stage.context3D.gl.getParameter(openfl.display3D.Context3D.__glMemoryTotalAvailable), UInt);
 					if (vRAMBytes == 1000 || vRAMBytes == 1 || vRAMBytes <= 0)
 						Logs.trace('Unable to grab GPU VRAM', ERROR, RED);
-					else {
-						var vRAMBytesFloat:#if cpp Float64 #else Float #end = vRAMBytes*1024;
-						vRAM = CoolUtil.getSizeString64(vRAMBytesFloat);
-					}
+					else
+						vRAM = CoolUtil.getSizeString(vRAMBytes * 1000);
 				}
 			} else
-				Logs.error('Unable to grab GPU Info');
+				Logs.trace('Unable to grab GPU Info', ERROR, RED);
 		}
 
 		#if cpp
 		totalMem = Std.string(MemoryUtil.getTotalMem() / 1024) + " GB";
 		#else
-		Logs.error('Unable to grab RAM Amount');
+		Logs.trace('Unable to grab RAM Amount', ERROR, RED);
 		#end
 
 		try {
 			memType = MemoryUtil.getMemType();
 		} catch (e) {
-			Logs.error('Unable to grab RAM Type: $e');
+			Logs.trace('Unable to grab RAM Type: $e', ERROR, RED);
 		}
 		formatSysInfo();
 	}
 
 	static function formatSysInfo() {
-		__formattedSysText = "";
+		__formattedSysText = #if android 'Device: ${Build.BRAND.charAt(0).toUpperCase() + Build.BRAND.substring(1)} ${Build.MODEL} (${Build.BOARD})\n' #else "" #end;
 		if (osInfo != "Unknown") __formattedSysText += 'System: $osInfo';
-		if (cpuName != "Unknown") __formattedSysText += '\nCPU: $cpuName ${openfl.system.Capabilities.cpuArchitecture} ${(openfl.system.Capabilities.supports64BitProcesses ? '64-Bit' : '32-Bit')}';
+		if (cpuName != "Unknown") __formattedSysText += '\nCPU: $cpuName ${getCPUArch()}';
 		if (gpuName != cpuName || vRAM != "Unknown") {
 			var gpuNameKnown = gpuName != "Unknown" && gpuName != cpuName;
 			var vramKnown = vRAM != "Unknown";
@@ -167,5 +160,45 @@ class SystemInfo extends FramerateCategory {
 
 		this.text.text = _text;
 		super.__enterFrame(t);
+	}
+
+	#if windows
+	@:functionCode('
+		SYSTEM_INFO osInfo;
+
+		GetSystemInfo(&osInfo);
+
+		switch(osInfo.wProcessorArchitecture)
+		{
+			case 9:
+				return ::String("x86_64");
+			case 5:
+				return ::String("ARM");
+			case 12:
+				return ::String("ARM64");
+			case 6:
+				return ::String("IA-64");
+			case 0:
+				return ::String("x86");
+			default:
+				return ::String("Unknown");
+		}
+	')
+	#elseif (mac || ios)
+	@:functionCode('
+		const NXArchInfo *archInfo = NXGetLocalArchInfo();
+    	return ::String(archInfo == NULL ? "Unknown" : archInfo->name);
+	')
+	#elseif cpp
+	@:functionCode('
+		struct utsname osInfo{};
+		uname(&osInfo);
+		return ::String(osInfo.machine);
+	')
+	#end
+	@:noCompletion
+	private static function getCPUArch():String
+	{
+		return "Unknown";
 	}
 }

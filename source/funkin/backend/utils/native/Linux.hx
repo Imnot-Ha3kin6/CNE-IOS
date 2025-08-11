@@ -2,8 +2,7 @@ package funkin.backend.utils.native;
 
 #if linux
 @:cppFileCode("#include <stdio.h>")
-@:dox(hide)
-final class Linux {
+class Linux {
 	@:functionCode('
 		FILE *meminfo = fopen("/proc/meminfo", "r");
 

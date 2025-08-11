@@ -1,7 +1,9 @@
 package funkin.backend.system.framerate;
 
-import funkin.backend.system.macros.GitCommitMacro;
+import openfl.text.TextFormat;
+import openfl.display.Sprite;
 import openfl.text.TextField;
+import funkin.backend.system.macros.GitCommitMacro;
 
 class CodenameBuildField extends TextField {
 	public function new() {
@@ -9,13 +11,7 @@ class CodenameBuildField extends TextField {
 		defaultTextFormat = Framerate.textFormat;
 		autoSize = LEFT;
 		multiline = wordWrap = false;
-		reload();
-	}
-
-	public function reload() {
-		text = '${Flags.VERSION_MESSAGE}';
-		#if debug
-		text += '\n${Flags.COMMIT_MESSAGE}';
-		#end
+		text = 'Codename Engine ${Main.releaseCycle}\nCommit ${GitCommitMacro.commitNumber} (${GitCommitMacro.commitHash})';
+		selectable = false;
 	}
 }

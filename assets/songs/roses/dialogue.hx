@@ -1,5 +1,4 @@
-function next(event:DialogueNextLineEvent) {
-	var first = event.playFirst;
+function next(first:Bool) {
 	if(first && canProceed) {
 		canProceed = false;
 		dialogueLines[0].playSound.play();

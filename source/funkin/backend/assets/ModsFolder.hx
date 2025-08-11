@@ -1,18 +1,26 @@
 package funkin.backend.assets;
 
-import flixel.util.FlxSignal.FlxTypedSignal;
 import funkin.backend.system.MainState;
-import haxe.io.Path;
+import funkin.menus.TitleState;
+import funkin.backend.system.Main;
+import openfl.utils.AssetCache;
+import flixel.util.FlxSignal.FlxTypedSignal;
+import openfl.utils.AssetManifest;
+import openfl.utils.AssetLibrary;
+import flixel.graphics.FlxGraphic;
+import flixel.util.FlxSignal.FlxTypedSignal;
+
 import lime.text.Font;
 import openfl.text.Font as OpenFLFont;
-import openfl.utils.AssetLibrary;
-import openfl.utils.AssetManifest;
 
-using StringTools;
 #if MOD_SUPPORT
 import sys.FileSystem;
 #end
 
+import flixel.FlxState;
+import haxe.io.Path;
+
+using StringTools;
 
 class ModsFolder {
 	/**
@@ -27,11 +35,11 @@ class ModsFolder {
 	/**
 	 * Path to the `mods` folder.
 	 */
-	public static var modsPath:String = "./mods/";
+	public static var modsPath:String = #if android StorageUtil.getExternalStorageDirectory() + #elseif (!android && mobile) StorageUtil.getStorageDirectory() + #end "mods/";
 	/**
 	 * Path to the `addons` folder.
 	 */
-	public static var addonsPath:String = "./addons/";
+	public static var addonsPath:String = #if android StorageUtil.getExternalStorageDirectory() + #elseif (!android && mobile) StorageUtil.getStorageDirectory() + #end "addons/";
 
 	/**
 	 * If accessing a file as assets/data/global/LIB_mymod.hx should redirect to mymod:assets/data/global.hx
@@ -42,16 +50,14 @@ class ModsFolder {
 	 * Whenever its the first time mods has been reloaded.
 	 */
 	private static var __firstTime:Bool = true;
-
 	/**
-	 * Initializes `mods` folder.
+	 * Initialises `mods` folder.
 	 */
 	public static function init() {
-		if(!getModsList().contains(Options.lastLoadedMod)) {
-			if(Options.lastLoadedMod != null)
-				Logs.warn("Mod \"" + Options.lastLoadedMod + "\" not found in mods list, switching to base game!");
+		if (!FileSystem.exists(modsPath)) FileSystem.createDirectory(modsPath);
+		if (!FileSystem.exists(addonsPath)) FileSystem.createDirectory(addonsPath);
+		if(!getModsList().contains(Options.lastLoadedMod))
 			Options.lastLoadedMod = null;
-		}
 	}
 
 	/**
@@ -61,13 +67,6 @@ class ModsFolder {
 	public static function switchMod(mod:String) {
 		Options.lastLoadedMod = currentModFolder = mod;
 		reloadMods();
-		if(mod == null) {
-			mod = "(default)";
-		}
-		Logs.traceColored([
-			Logs.logText('Switched to mod: '),
-			Logs.logText(mod, GREEN)
-		], VERBOSE);
 	}
 
 	public static function reloadMods() {
@@ -96,18 +95,13 @@ class ModsFolder {
 	public static function getModsList():Array<String> {
 		var mods:Array<String> = [];
 		#if MOD_SUPPORT
-		if (!FileSystem.exists(modsPath)) {
-			// Mods directory does not exist yet, create it
-			FileSystem.createDirectory(modsPath);
-		}
-		
 		final modsList:Array<String> = FileSystem.readDirectory(modsPath);
 
 		if (modsList == null || modsList.length <= 0)
 			return mods;
 
 		for (modFolder in modsList) {
-			if (FileSystem.isDirectory(modsPath + modFolder)) {
+			if (FileSystem.isDirectory('${modsPath}${modFolder}')) {
 				mods.push(modFolder);
 			} else {
 				var ext = Path.extension(modFolder).toLowerCase();
@@ -121,20 +115,22 @@ class ModsFolder {
 		#end
 		return mods;
 	}
-	public static function getLoadedModsLibs(skipTranslated:Bool = false):Array<IModsAssetLibrary> {
+	public static function getLoadedMods():Array<String> {
 		var libs = [];
 		for (i in Paths.assetsTree.libraries) {
-			var l = AssetsLibraryList.getCleanLibrary(i);
-			#if TRANSLATIONS_SUPPORT
-			if(skipTranslated && (l is TranslatedAssetLibrary)) continue;
-			#end
-			if (l is ScriptedAssetLibrary || l is IModsAssetLibrary) libs.push(cast(l, IModsAssetLibrary));
+			var l = i;
+			if (l is openfl.utils.AssetLibrary) {
+				var al = cast(l, openfl.utils.AssetLibrary);
+				@:privateAccess
+				if (al.__proxy != null) l = al.__proxy;
+			}
+			var libString:String;
+			if (l is ScriptedAssetLibrary || l is IModsAssetLibrary) libString = cast(l, IModsAssetLibrary).modName;
+			else continue;
+			libs.push(libString);
 		}
 		return libs;
 	}
-	public static function getLoadedMods(skipTranslated:Bool = false):Array<String>
-		return [for (modLib in getLoadedModsLibs(skipTranslated)) modLib.modName];
-
 	public static function prepareLibrary(libName:String, force:Bool = false) {
 		var assets:AssetManifest = new AssetManifest();
 		assets.name = libName;
@@ -153,25 +149,21 @@ class ModsFolder {
 		return font;
 	}
 
-	public static function prepareModLibrary(libName:String, lib:IModsAssetLibrary, force:Bool = false, ?tag:AssetSource) {
+	public static function prepareModLibrary(libName:String, lib:IModsAssetLibrary, force:Bool = false) {
 		var openLib = prepareLibrary(libName, force);
 		lib.prefix = 'assets/';
 		@:privateAccess
 		openLib.__proxy = cast(lib, lime.utils.AssetLibrary);
-		if (tag != null) {
-			openLib.tag = tag;
-			cast(lib, lime.utils.AssetLibrary).tag = tag;
-		}
 		return openLib;
 	}
 
 	#if MOD_SUPPORT
-	public static function loadLibraryFromFolder(libName:String, folder:String, force:Bool = false, ?modName:String, ?tag:AssetSource = MODS) {
-		return prepareModLibrary(libName, new ModsFolderLibrary(folder, libName, modName), force, tag);
+	public static function loadLibraryFromFolder(libName:String, folder:String, force:Bool = false, ?modName:String) {
+		return prepareModLibrary(libName, new ModsFolderLibrary(folder, libName, modName), force);
 	}
 
-	public static function loadLibraryFromZip(libName:String, zipPath:String, force:Bool = false, ?modName:String, ?tag:AssetSource = MODS) {
-		return prepareModLibrary(libName, new ZipFolderLibrary(zipPath, libName, modName), force, tag);
+	public static function loadLibraryFromZip(libName:String, zipPath:String, force:Bool = false, ?modName:String) {
+		return prepareModLibrary(libName, new ZipFolderLibrary(zipPath, libName, modName), force);
 	}
 	#end
 }

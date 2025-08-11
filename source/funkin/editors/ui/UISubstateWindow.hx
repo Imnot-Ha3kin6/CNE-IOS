@@ -5,7 +5,6 @@ import openfl.display.ShaderInput;
 import openfl.filters.ShaderFilter;
 import flixel.tweens.FlxTween;
 import funkin.backend.shaders.CustomShader;
-import openfl.filters.ShaderFilter;
 
 // TODO: make UIWarningSubstate extend this
 class UISubstateWindow extends MusicBeatSubstate {
@@ -38,7 +37,6 @@ class UISubstateWindow extends MusicBeatSubstate {
 	var winWidth:Int = 560;
 	var winHeight:Int = 570;
 	var winTitle:String = "";
-	var winSkin:String = "editors/ui/normal-popup";
 
 	public override function create() {
 		super.create();
@@ -73,20 +71,17 @@ class UISubstateWindow extends MusicBeatSubstate {
 		subCam.zoom = 0.1;
 		FlxG.cameras.add(subCam, false);
 
-		windowSpr = new UISliceSprite(0, 0, winWidth, winHeight, winSkin);
+		windowSpr = new UISliceSprite(0, 0, winWidth, winHeight, "editors/ui/normal-popup");
 		add(windowSpr);
 
-		if(winTitle != null) {
-			add(titleSpr = new UIText(windowSpr.x + 25, windowSpr.y, windowSpr.bWidth - 50, winTitle, 15, -1));
-			titleSpr.y = windowSpr.y + ((30 - titleSpr.height) / 2);
-		}
+		add(titleSpr = new UIText(windowSpr.x + 25, windowSpr.y, windowSpr.bWidth - 50, winTitle, 15, -1));
+		titleSpr.y = windowSpr.y + ((30 - titleSpr.height) / 2);
 
 		FlxTween.tween(camera, {alpha: 1}, 0.25, {ease: FlxEase.cubeOut});
 		FlxTween.tween(camera, {zoom: 1}, 0.66, {ease: FlxEase.elasticOut});
 	}
 
 	public override function destroy() {
-		FlxG.sound.play(Paths.sound(Flags.DEFAULT_EDITOR_WINDOWCLOSE_SOUND));
 		super.destroy();
 		for(e in camShaders)
 			e.removeShader(blurShader);

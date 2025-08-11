@@ -1,6 +1,8 @@
 package funkin.backend.assets;
 
-import openfl.utils.AssetLibrary;
+import lime.utils.AssetLibrary;
+import lime.utils.Assets as LimeAssets;
+
 import lime.media.AudioBuffer;
 import lime.graphics.Image;
 import lime.text.Font;
@@ -14,22 +16,21 @@ import sys.FileSystem;
 using StringTools;
 
 class ModsFolderLibrary extends AssetLibrary implements IModsAssetLibrary {
-	public var basePath:String;
+	public var folderPath:String;
 	public var modName:String;
 	public var libName:String;
-	//public var useImageCache:Bool = true;
+	public var useImageCache:Bool = true;
 	public var prefix = 'assets/';
 
-	public function new(basePath:String, libName:String, ?modName:String) {
-		this.basePath = basePath;
+	public function new(folderPath:String, libName:String, ?modName:String) {
+		this.folderPath = folderPath;
 		this.libName = libName;
 		this.prefix = 'assets/$libName/';
-		this.modName = modName == null ? libName : modName;
+		if(modName == null)
+			this.modName = libName;
+		else
+			this.modName = modName;
 		super();
-	}
-
-	function toString():String {
-		return '(ModsFolderLibrary: $modName)';
 	}
 
 	#if MOD_SUPPORT
@@ -89,7 +90,7 @@ class ModsFolderLibrary extends AssetLibrary implements IModsAssetLibrary {
 		return __getFiles(folder, false);
 
 	public function __getFiles(folder:String, folders:Bool = false) {
-		if (!folder.endsWith("/")) folder += "/";
+		if (!folder.endsWith("/")) folder = folder + "/";
 		if (!__parseAsset(folder)) return [];
 		var path = getAssetPath();
 		try {
@@ -110,23 +111,22 @@ class ModsFolderLibrary extends AssetLibrary implements IModsAssetLibrary {
 	}
 
 	private function getAssetPath() {
-		return '$basePath/$_parsedAsset';
+		return '$folderPath/$_parsedAsset';
 	}
 
 	private function __isCacheValid(cache:Map<String, Dynamic>, asset:String, isLocalCache:Bool = false) {
 		if (!editedTimes.exists(asset))
 			return false;
-		var editedTime = editedTimes[asset];
-		if (editedTime == null || editedTime < FileSystem.stat(getPath(asset)).mtime.getTime()) {
+		if (editedTimes[asset] == null || editedTimes[asset] < FileSystem.stat(getPath(asset)).mtime.getTime()) {
 			// destroy already existing to prevent memory leak!!!
-			/*var asset = cache[asset];
+			var asset = cache[asset];
 			if (asset != null) {
 				switch(Type.getClass(asset)) {
 					case lime.graphics.Image:
 						trace("getting rid of image cause replaced");
 						cast(asset, lime.graphics.Image);
 				}
-			}*/
+			}
 			return false;
 		}
 
@@ -150,14 +150,4 @@ class ModsFolderLibrary extends AssetLibrary implements IModsAssetLibrary {
 		return true;
 	}
 	#end
-
-	// Backwards compat
-
-	@:noCompletion public var folderPath(get, set):String;
-	@:noCompletion private inline function get_folderPath():String {
-		return basePath;
-	}
-	@:noCompletion private inline function set_folderPath(value:String):String {
-		return basePath = value;
-	}
 }

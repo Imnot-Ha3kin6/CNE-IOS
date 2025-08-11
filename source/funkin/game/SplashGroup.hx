@@ -2,7 +2,7 @@ package funkin.game;
 
 import haxe.xml.Access;
 
-class SplashGroup extends FlxTypedGroup<Splash> {
+class SplashGroup extends FlxTypedGroup<FunkinSprite> {
 	/**
 	 * Whenever the splash group has successfully loaded or not.
 	 */
@@ -35,32 +35,28 @@ class SplashGroup extends FlxTypedGroup<Splash> {
 			pregenerateSplashes(splash);
 			add(splash);
 
-			// immediately draw once and put image in GPU to prevent freezes
+			// immediatly draw once and put image in GPU to prevent freezes
 			// TODO: change to graphics cache
-			@:privateAccess
 			splash.drawComplex(FlxG.camera);
 		} catch(e:Dynamic) {
-			Logs.error('Couldn\'t parse splash data for "${path}": ${e.toString()}');
+			Logs.trace('Couldn\'t parse splash data for "${path}": ${e.toString()}', ERROR);
 			valid = false;
 		}
-		maxSize = Flags.MAX_SPLASHES;
+		maxSize = 8;
 	}
 
-	var _scale:Float = 1.0;
-	var _alpha:Float = 1.0;
-	var _antialiasing:Bool = true;
-
 	function createSplash(imagePath:String) {
-		var splash = new Splash();
+		var splash = new FunkinSprite();
+		splash.antialiasing = true;
 		splash.active = splash.visible = false;
 		splash.loadSprite(Paths.image(imagePath));
-		_scale = xml.has.scale ? Std.parseFloat(xml.att.scale).getDefault(1) : 1;
-		_alpha = xml.has.alpha ? Std.parseFloat(xml.att.alpha).getDefault(1) : 1;
-		_antialiasing = xml.has.antialiasing ? xml.att.antialiasing == "true" : true;
+		if (xml.has.scale) splash.scale.scale(Std.parseFloat(xml.att.scale).getDefault(1));
+		if (xml.has.alpha) splash.alpha = Std.parseFloat(xml.att.alpha).getDefault(1);
+		if (xml.has.antialiasing) splash.antialiasing = xml.att.antialiasing == "true";
 		return splash;
 	}
 
-	function setupAnims(xml:Access, splash:Splash) {
+	function setupAnims(xml:Access, splash:FunkinSprite) {
 		for(strum in xml.nodes.strum) {
 			var id:Null<Int> = Std.parseInt(strum.att.id);
 			if (id != null) {
@@ -86,19 +82,15 @@ class SplashGroup extends FlxTypedGroup<Splash> {
 		}
 		splash.animation.finishCallback = function(name:String) {
 			splash.active = splash.visible = false;
-			splash.strum = null;
-			splash.strumID = null;
 		};
 	}
 
-	function pregenerateSplashes(splash:Splash) {
+	function pregenerateSplashes(splash:FunkinSprite) {
 		// make 7 additional splashes
 		for(i in 0...7) {
-			var spr = Splash.copyFrom(splash);
+			var spr = FunkinSprite.copyFrom(splash);
 			spr.animation.finishCallback = function(name:String) {
 				spr.active = spr.visible = false;
-				spr.strum = null;
-				spr.strumID = null;
 			};
 			add(spr);
 		}
@@ -107,26 +99,17 @@ class SplashGroup extends FlxTypedGroup<Splash> {
 	public function getSplashAnim(id:Int):String {
 		if (animationNames.length <= 0) return null;
 		id %= animationNames.length;
-		var animNames = animationNames[id];
-		if (animNames == null || animNames.length <= 0) return null;
-		return animNames[FlxG.random.int(0, animNames.length - 1)];
+		if (animationNames[id] == null || animationNames[id].length <= 0) return null;
+		return animationNames[id][FlxG.random.int(0, animationNames[id].length - 1)];
 	}
 
-	var __splash:Splash;
+	var __splash:FunkinSprite;
 	public function showOnStrum(strum:Strum) {
 		if (!valid) return null;
 		__splash = recycle();
 
-		__splash.strum = strum;
-		__splash.strumID = strum.ID;
-
-		@:privateAccess
-		__splash.scale.x = __splash.scale.y = _scale * strum.strumLine.strumScale;
-		__splash.alpha = _alpha;
-		__splash.antialiasing = _antialiasing;
-
 		__splash.cameras = strum.lastDrawCameras;
-		__splash.setPosition(strum.x + 0.5 * (strum.width - __splash.width), strum.y + 0.5 * (strum.height - __splash.height));
+		__splash.setPosition(strum.x + ((strum.width - __splash.width) / 2), strum.y + ((strum.height - __splash.height) / 2));
 		__splash.active = __splash.visible = true;
 		__splash.playAnim(getSplashAnim(strum.ID), true);
 		__splash.scrollFactor.set(strum.scrollFactor.x, strum.scrollFactor.y);

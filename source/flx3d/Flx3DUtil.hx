@@ -7,14 +7,14 @@ import flixel.FlxG;
 #end
 
 /**
- * @author lunarcleint
+ * @author lunarclient
  * @see https://twitter.com/lunarcleint
  *
  * Help from Ne_Eo
  * @see https://twitter.com/Ne_Eo_Twitch
  */
 @:access(away3d.core.managers.Stage3DManager)
-final class Flx3DUtil
+class Flx3DUtil
 {
 	#if THREE_D_SUPPORT
 	/**

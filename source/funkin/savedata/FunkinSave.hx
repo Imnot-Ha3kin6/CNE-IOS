@@ -1,8 +1,8 @@
 package funkin.savedata;
 
-import flixel.util.FlxSave;
 import lime.app.Application;
 import openfl.Lib;
+import flixel.util.FlxSave;
 
 /**
  * Class used for saves WITHOUT going through the struggle of type checks
@@ -24,22 +24,15 @@ class FunkinSave {
 	public static var save:FlxSave;
 
 	public static function init() {
-		var path = Flags.SAVE_PATH, name = Flags.SAVE_NAME;
-		if (path == null) path = 'CodenameEngine';
-		if (name == null) name = 'save-default';
-
-		if (save == null) save = new FlxSave();
-		save.bind(name, path);
+		//trace(Application.current.meta.get('save-path'));
+		//trace(Application.current.meta.get('save-name'));
+		save = new FlxSave();
+		save.bind('save-default', #if sys 'YoshiCrafter29/CodenameEngine' #else 'CodenameEngine' #end);
 		load();
 
 		if (!__eventAdded) {
 			Lib.application.onExit.add(function(i:Int) {
-				Logs.traceColored([
-					Logs.getPrefix("FunkinSave"),
-					Logs.logText("Saving "),
-					Logs.logText("save data", GREEN),
-					Logs.logText("...")
-				], VERBOSE);
+				trace("Saving savedata...");
 				flush();
 			});
 			__eventAdded = true;

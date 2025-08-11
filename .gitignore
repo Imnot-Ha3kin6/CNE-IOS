@@ -1,6 +1,7 @@
 export/
 dump/
-latest/*
+latest/windows/obj/
+latest/windows/haxe/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -8,8 +9,4 @@ latest/*
 pages/
 docs/doc.xml
 mods/*
-addons/*
 !mods/readme.txt
-addons/*
-!addons/readme.txt
-dev-libs/

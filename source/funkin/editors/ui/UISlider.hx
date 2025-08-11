@@ -1,18 +1,17 @@
 package funkin.editors.ui;
 
 import flixel.util.FlxColor;
-
-using StringTools;
 using flixel.util.FlxSpriteUtil;
+using StringTools;
 
-typedef SliderSegment = {
+typedef SliderSegement = {
 	var start:Float;
 	var end:Float;
 	var size:Float;
 }
 
 class UISlider extends UISprite {
-	public var segments:Array<SliderSegment> = [];
+	public var segments:Array<SliderSegement> = [];
 	public var barWidth:Int = 120;
 
 	public var progressbar:UISprite;
@@ -36,7 +35,7 @@ class UISlider extends UISprite {
 	public var valueStepper:UINumericStepper;
 	public var onChange:Float->Void;
 
-	public function new(x:Float, y:Float, width:Int = 120, value:Float, segments:Array<SliderSegment>, centered:Bool) {
+	public function new(x:Float, y:Float, width:Int = 120, value:Float, segments:Array<SliderSegement>, centered:Bool) {
 		this.segments = segments;
 		this.barWidth = width;
 		this.progressCentered = centered;
@@ -46,7 +45,7 @@ class UISlider extends UISprite {
 		makeGraphic(barWidth, 12, 0x00000000, true);
 		this.drawRoundRect(0, 0, barWidth, 12, 8, 6, 0xFFC0C0C0);
 		this.drawRoundRect(1, 1, barWidth-2, 12-2, 8, 5, 0xFF140013);
-		cursor = CLICK;
+		cursor = BUTTON;
 
 		progressbar = new UISprite(centered ? barWidth/2 : 0);
 		progressbar.makeGraphic(barWidth, 8, 0x00000000, true);
@@ -64,7 +63,7 @@ class UISlider extends UISprite {
 			var selectableBar:UISprite = new UISprite(x,y);
 			selectableBar.loadGraphic(Paths.image("editors/ui/slider"));
 			selectableBar.antialiasing = true;
-			selectableBar.cursor = CLICK;
+			selectableBar.cursor = BUTTON;
 			members.push(selectableBar);
 
 			switch (i) {
@@ -75,12 +74,12 @@ class UISlider extends UISprite {
 
 		selectableHitbox = new UISprite(x,y);
 		selectableHitbox.makeSolid(barWidth, 18, -1);
-		selectableHitbox.cursor = CLICK;
+		selectableHitbox.cursor = BUTTON;
 		selectableHitbox.alpha = 0;
 		members.push(selectableHitbox);
 
 		valueStepper = new UINumericStepper(x - 64 - 64, y, 1, 0.01, 2, segments[0].start, segments[segments.length-1].end, 0, 16);
-		valueStepper.antialiasing = true;
+		valueStepper.antialiasing = valueStepper.label.antialiasing = true;
 		valueStepper.onChange = function (text:String) {
 			@:privateAccess valueStepper.__onChange(text);
 			this.value = valueStepper.value;
@@ -94,8 +93,6 @@ class UISlider extends UISprite {
 
 	var __stepperWidth = 25;
 
-	public var isSliding:Bool = false;
-
 	public override function update(elapsed:Float) {
 		selectableHitbox.follow(this, 0, (height-selectableHitbox.height)/2);
 
@@ -103,16 +100,12 @@ class UISlider extends UISprite {
 		valueStepper.bWidth = Std.int(FlxMath.lerp(valueStepper.bWidth, __stepperWidth, 1/2.25));
 		valueStepper.follow(this, -startText.width-10 - valueStepper.bWidth - 4, (height-valueStepper.bHeight)/2);
 
-		//@:privateAccess valueStepper.__framesDirty = true;
-
 		var lastBarProgress:Float = __barProgress;
 
-		if (selectableHitbox.hovered && FlxG.mouse.justPressed) isSliding = true;
-		if (isSliding) {
+		if (selectableHitbox.hovered && FlxG.mouse.pressed) {
 			var mousePos = FlxG.mouse.getScreenPosition(__lastDrawCameras[0], FlxPoint.get());
-			__barProgress = CoolUtil.bound(mousePos.x-x, 0, barWidth)/barWidth;
+			__barProgress = FlxMath.bound(mousePos.x-x, 0, barWidth)/barWidth;
 			mousePos.put();
-			if (FlxG.mouse.justReleased) isSliding = false;
 		}
 
 		if (__barProgress != lastBarProgress) {
@@ -122,7 +115,7 @@ class UISlider extends UISprite {
 
 		visualProgress = FlxMath.lerp(visualProgress, __barProgress, 1/2.25);
 		progressbar.follow(this, progressCentered ? barWidth/2 : 0, (height-progressbar.height)/2);
-		progressbar.scale.x = CoolUtil.bound(visualProgress-(progressCentered?0.5:0),-1,1);
+		progressbar.scale.x = FlxMath.bound(visualProgress-(progressCentered?0.5:0),-1,1);
 		progressbar.colorTransform.color = FlxColor.interpolate(progressbar.colorTransform.color, selectableHitbox.hovered ? 0xFF7F00BF : 0xFF67009B, 1/14);
 
 		selectableBar.follow(this, (visualProgress * barWidth) - (selectableBar.width/2), (height-selectableBar.height)/2); selectableBarHighlight.follow(selectableBar);

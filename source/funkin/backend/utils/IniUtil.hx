@@ -1,33 +1,40 @@
 package funkin.backend.utils;
 
+
+/**
+ * DOESNT SUPPORT CATEGORIES YET!!
+ */
 class IniUtil {
-	public static inline function parseAsset(assetPath:String)
-		return parseString(Assets.getText(assetPath));
+	public static inline function parseAsset(assetPath:String, ?defaultVariables:Map<String, String>)
+		return parseString(Assets.getText(assetPath), defaultVariables);
 
-	public static function parseString(data:String):Map<String, Map<String, String>> {
-		var res:Map<String, Map<String, String>> = [];
-		parseStringToMap(res, data);
-		return res;
-	}
+	public static function parseString(data:String, ?defaultVariables:Map<String, String>) {
+		var trimmed:String;
+		var splitContent = [for(e in data.split("\n")) if ((trimmed = e.trim()) != "") trimmed];
 
-	public static function parseStringToMap(map:Map<String, Map<String, String>>, data:String) {
-		var section:Map<String, String> = null;
+		var finalMap:Map<String, String> = [];
+		if (defaultVariables != null)
+			for(k=>e in defaultVariables)
+				finalMap[k] = e;
 
-		var regexSec = ~/^\[(.+)\]/g, regexVal = ~/^([^#;].+)=(.+)/g, quote = ~/[\\'"](.+)[\\'"]/g, iln = 0;
-		do {
-			var line = data.substring(iln, ((iln = data.indexOf('\n', iln) + 1) == 0 ? data.length : iln - 1));
-			if (regexSec.match(line)) {
-				if ((section = map.get(regexSec.matched(1))) == null) map.set(regexSec.matched(1), section = []);
-			}
-			else if (regexVal.match(line)) {
-				var s = regexVal.matched(2).trim();
-				if (quote.match(s)) s = quote.matched(1);
+		for(line in splitContent) {
+			// comment
+			if (line.startsWith(";")) continue;
+			// categories; not supported yet
+			if (line.startsWith("[") && line.endsWith("]")) continue;
 
-				if (section == null) {
-					if ((section = map.get("Global")) == null) map.set("Global", section = []);
-				}
-				section.set(regexVal.matched(1).trim(), s);
-			}
-		} while (iln != 0);
+			var index = line.indexOf("=");
+			var name = line.substr(0, index).trim();
+			var value = line.substr(index+1).trim();
+
+			if (value.startsWith("\"") && value.endsWith("\""))
+				value = value.substr(1, value.length - 2);
+
+			if (value.length == 0 || name.length == 0)
+				continue;
+
+			finalMap[name] = value;
+		}
+		return finalMap;
 	}
 }

@@ -1,5 +1,7 @@
 package funkin.backend.utils;
 
+import lime.app.Application;
+
 /**
  * Small util that allows you to load any function from ndlls via `getFunction`.
  *
@@ -14,7 +16,7 @@ package funkin.backend.utils;
  * - The Function cannot be found in the NDLL
  * then an empty function will be returned instead, and a message will be shown in logs.
  */
-final class NdllUtil {
+class NdllUtil {
 	#if NDLLS_SUPPORTED
 		#if windows   public static final os:String = "windows";   #end
 		#if linux     public static final os:String = "linux";     #end
@@ -38,10 +40,10 @@ final class NdllUtil {
 		return Reflect.makeVarArgs(function(a:Array<Dynamic>) {
 			// This generates horrific code
 			return funkin.backend.system.macros.Utils.generateReflectionLike(25, "func", "a");
-			//return Reflect.callMethod(null, func, a); // wouldn't work for some reason, maybe cause like c++ functions doesn't have reflection enabled
+			//return Reflect.callMethod(null, func, a); // wouldnt work for some reason, maybe cause like c++ functions doesnt have reflection enabled
 		});
 		#else
-		Logs.warn('NDLLs are not supported on this platform.');
+		Logs.trace('NDLLs are not supported on this platform.', WARNING);
 		return noop;
 		#end
 	}
@@ -56,20 +58,20 @@ final class NdllUtil {
 	public static function getFunctionFromPath(ndll:String, name:String, args:Int):Dynamic {
 		#if NDLLS_SUPPORTED
 		if (!Assets.exists(ndll)) {
-			Logs.warn('Couldn\'t find ndll at ${ndll}.');
+			Logs.trace('Couldn\'t find ndll at ${ndll}.', WARNING);
 			return noop;
 		}
 		var func = lime.system.CFFI.load(Assets.getPath(ndll), name, args);
 
 		if (func == null) {
-			Logs.error('Method ${name} in ndll ${ndll} with ${args} args was not found.');
+			Logs.trace('Method ${name} in ndll ${ndll} with ${args} args was not found.', ERROR);
 			return noop;
 		}
 		return func;
 		#else
-		Logs.warn('NDLLs are not supported on this platform.');
-		return noop;
+		Logs.trace('NDLLs are not supported on this platform.', WARNING);
 		#end
+		return noop;
 	}
 
 	@:dox(hide) @:noCompletion static function noop() {}

@@ -1,24 +1,24 @@
 package funkin.menus;
 
 import flixel.sound.FlxSound;
-import funkin.backend.FunkinText;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import funkin.backend.FunkinText;
 import funkin.backend.scripting.Script;
+import funkin.backend.scripting.events.MenuChangeEvent;
 import funkin.backend.scripting.events.NameEvent;
-import funkin.backend.scripting.events.menu.MenuChangeEvent;
-import funkin.backend.scripting.events.menu.pause.*;
+import funkin.backend.scripting.events.PauseCreationEvent;
 import funkin.backend.system.Conductor;
 import funkin.backend.utils.FunkinParentDisabler;
 import funkin.editors.charter.Charter;
 import funkin.menus.StoryMenuState;
 import funkin.options.OptionsMenu;
+import funkin.options.TreeMenu;
 import funkin.options.keybinds.KeybindsOptions;
 
 class PauseSubState extends MusicBeatSubstate
 {
-	public static var script:String = Flags.DEFAULT_PAUSE_SCRIPT;
+	public static var script:String = "";
 
 	var grpMenuShit:FlxTypedGroup<Alphabet>;
 
@@ -27,23 +27,19 @@ class PauseSubState extends MusicBeatSubstate
 	var deathCounter:FunkinText;
 	var multiplayerText:FunkinText;
 
-	var menuItems:Array<String>;
-
+	var menuItems:Array<String> = ['Resume', 'Restart Song', 'Change Controls', 'Change Options', 'Exit to menu', "Exit to charter"];
 	var curSelected:Int = 0;
 
 	var pauseMusic:FlxSound;
 
 	public var pauseScript:Script;
-	public var selectCall:NameEvent->Void;  // Mainly for extern stuff that aren't scripts  - Nex
 
 	public var game:PlayState = PlayState.instance; // shortcut
 
 	private var __cancelDefault:Bool = false;
 
-	public function new(?items:Array<String>, ?selectCall:NameEvent->Void) {
+	public function new(x:Float = 0, y:Float = 0) {
 		super();
-		menuItems = items != null ? items : Flags.DEFAULT_PAUSE_ITEMS.copy();
-		this.selectCall = selectCall;
 	}
 
 	var parentDisabler:FunkinParentDisabler;
@@ -54,18 +50,21 @@ class PauseSubState extends MusicBeatSubstate
 		if (menuItems.contains("Exit to charter") && !PlayState.chartingMode)
 			menuItems.remove("Exit to charter");
 
+		if (controls.touchC)
+			menuItems.remove("Change Controls");
+
 		add(parentDisabler = new FunkinParentDisabler());
 
 		pauseScript = Script.create(Paths.script(script));
 		pauseScript.setParent(this);
 		pauseScript.load();
 
-		var event = EventManager.get(PauseCreationEvent).recycle(Flags.DEFAULT_PAUSE_MENU_MUSIC, menuItems);
+		var event = EventManager.get(PauseCreationEvent).recycle('breakfast', menuItems);
 		pauseScript.call('create', [event]);
 
 		menuItems = event.options;
 
-		pauseMusic = FlxG.sound.load(Assets.getMusic(Paths.music(event.music)), 0, true);
+		pauseMusic = FlxG.sound.load(Paths.music(event.music), 0, true);
 		pauseMusic.persist = false;
 		pauseMusic.group = FlxG.sound.defaultMusicGroup;
 		pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
@@ -79,19 +78,12 @@ class PauseSubState extends MusicBeatSubstate
 		bg.scrollFactor.set();
 		add(bg);
 
-		var multiplayerInfo:String = PlayState.opponentMode ? 'pause.coopMode' :
-									 PlayState.coopMode ? 'pause.opponentMode' :
-									 null;
-
 		levelInfo = new FunkinText(20, 15, 0, PlayState.SONG.meta.displayName, 32, false);
-		levelDifficulty = new FunkinText(20, 15, 0, TU.translateDiff(PlayState.difficulty).toUpperCase(), 32, false);
-		deathCounter = new FunkinText(20, 15, 0, TU.translate("pause.deathCounter", [PlayState.deathCounter]), 32, false);
-		multiplayerText = null;
-		if(multiplayerInfo != null)
-			multiplayerText = new FunkinText(20, 15, 0, TU.translate(multiplayerInfo), 32, false);
+		levelDifficulty = new FunkinText(20, 15, 0, PlayState.difficulty.toUpperCase(), 32, false);
+		deathCounter = new FunkinText(20, 15, 0, "Blue balled: " + PlayState.deathCounter, 32, false);
+		multiplayerText = new FunkinText(20, 15, 0, PlayState.opponentMode ? 'OPPONENT MODE' : (PlayState.coopMode ? 'CO-OP MODE' : ''), 32, false);
 
 		for(k=>label in [levelInfo, levelDifficulty, deathCounter, multiplayerText]) {
-			if(label == null) continue;
 			label.scrollFactor.set();
 			label.alpha = 0;
 			label.x = FlxG.width - (label.width + 20);
@@ -107,8 +99,7 @@ class PauseSubState extends MusicBeatSubstate
 
 		for (i in 0...menuItems.length)
 		{
-			var pauseId = "pause." + TU.raw2Id(menuItems[i]);
-			var songText:Alphabet = new Alphabet(0, (70 * i) + 30, TU.translate(pauseId), "bold");
+			var songText:Alphabet = new Alphabet(0, (70 * i) + 30, menuItems[i], true, false);
 			songText.isMenuItem = true;
 			songText.targetY = i;
 			grpMenuShit.add(songText);
@@ -123,6 +114,9 @@ class PauseSubState extends MusicBeatSubstate
 		pauseScript.call("postCreate");
 
 		game.updateDiscordPresence();
+
+		addTouchPad('UP_DOWN', 'A');
+		addTouchPadCamera();
 	}
 
 	override function update(elapsed:Float)
@@ -149,11 +143,13 @@ class PauseSubState extends MusicBeatSubstate
 
 	public function selectOption() {
 		var event = EventManager.get(NameEvent).recycle(menuItems[curSelected]);
-		if (selectCall != null) selectCall(event);
 		pauseScript.call("onSelectOption", [event]);
+
 		if (event.cancelled) return;
 
-		switch (event.name)
+		var daSelected:String = event.name;
+
+		switch (daSelected)
 		{
 			case "Resume":
 				close();
@@ -163,15 +159,18 @@ class PauseSubState extends MusicBeatSubstate
 				FlxG.resetState();
 			case "Change Controls":
 				persistentDraw = false;
+				removeTouchPad();
 				openSubState(new KeybindsOptions());
 			case "Change Options":
-				FlxG.switchState(new OptionsMenu((_) -> FlxG.switchState(new PlayState())));
+				TreeMenu.lastState = PlayState;
+				FlxG.switchState(new OptionsMenu());
 			case "Exit to charter":
-				FlxG.switchState(new Charter(PlayState.SONG.meta.name, PlayState.difficulty, false));
+				FlxG.switchState(new funkin.editors.charter.Charter(PlayState.SONG.meta.name, PlayState.difficulty, false));
 			case "Exit to menu":
 				if (PlayState.chartingMode && Charter.undos.unsaved)
 					game.saveWarn(false);
 				else {
+					PlayState.resetSongInfos();
 					if (Charter.instance != null) Charter.instance.__clearStatics();
 
 					// prevents certain notes to disappear early when exiting  - Nex
@@ -185,18 +184,25 @@ class PauseSubState extends MusicBeatSubstate
 	}
 	override function destroy()
 	{
-		if(camera != FlxG.camera && _cameras != null) {
-			if(FlxG.cameras.list.contains(camera))
-				FlxG.cameras.remove(camera, true);
-		}
+		if(FlxG.cameras.list.contains(camera))
+			FlxG.cameras.remove(camera, true);
 		pauseScript.call("destroy");
 		pauseScript.destroy();
 
-		if(pauseMusic != null) {
-			@:privateAccess
-			FlxG.sound.destroySound(pauseMusic);
-		}
+		if (pauseMusic != null)
+			@:privateAccess {
+				FlxG.sound.destroySound(pauseMusic);
+			}
+
 		super.destroy();
+	}
+
+	override function closeSubState() {
+		persistentUpdate = true;
+		super.closeSubState();
+		removeTouchPad();
+		addTouchPad('UP_DOWN', 'A');
+		addTouchPadCamera();
 	}
 
 	function changeSelection(change:Int = 0):Void
@@ -211,7 +217,10 @@ class PauseSubState extends MusicBeatSubstate
 		{
 			item.targetY = i - curSelected;
 
-			item.alpha = (item.targetY == 0) ? 1 : 0.6;
+			if (item.targetY == 0)
+				item.alpha = 1;
+			else
+				item.alpha = 0.6;
 		}
 	}
 }

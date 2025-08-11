@@ -1,8 +1,8 @@
 package funkin.editors.ui;
 
 import flixel.math.FlxPoint;
-import flixel.util.FlxColor;
 import funkin.backend.shaders.CustomShader;
+import flixel.util.FlxColor;
 
 using flixel.util.FlxSpriteUtil;
 
@@ -44,10 +44,10 @@ class UIColorwheel extends UISliceSprite {
 
 		// Im too lazy to use a shader for this if its not even gonna change
 		colorSlider.pixels.lock();
-		for (pixelY in 0...Std.int(colorSlider.height)) {
-			var color:Int = FlxColor.fromHSB(pixelY / (colorSlider.height-1) * 360, 1, 1);
-			for (pixelX in 0...Std.int(colorSlider.width))
-				if (colorSlider.pixels.getPixel32(pixelX, pixelY) != FlxColor.TRANSPARENT) colorSlider.pixels.setPixel32(pixelX, pixelY, color);
+		for (pixely in 0...Std.int(colorSlider.height)) {
+			var color:Int = FlxColor.fromHSB(pixely / (colorSlider.height-1) * 360, 1, 1);
+			for (pixelx in 0...Std.int(colorSlider.width))
+				if (colorSlider.pixels.getPixel32(pixelx, pixely) != FlxColor.TRANSPARENT) colorSlider.pixels.setPixel32(pixelx, pixely, color);
 		}
 		colorSlider.pixels.unlock();
 
@@ -69,11 +69,10 @@ class UIColorwheel extends UISliceSprite {
 			numStepper.antialiasing = true; numStepper.ID = i;
 			numStepper.onChange = (text:String) -> {
 				@:privateAccess numStepper.__onChange(text);
-				var val = Std.int(numStepper.value);
 				switch (numStepper.ID) {
-					default: curColor.red = val;
-					case 1: curColor.green = val;
-					case 2: curColor.blue = val;
+					default: curColor.red = Std.int(numStepper.value);
+					case 1: curColor.green = Std.int(numStepper.value);
+					case 2: curColor.blue = Std.int(numStepper.value);
 				}
 				hue = curColor.hue; saturation = curColor.saturation; brightness = curColor.brightness;
 				updateWheel();
@@ -124,35 +123,30 @@ class UIColorwheel extends UISliceSprite {
 	public var colorChanged:Bool = false;
 
 	// Make the colorwheel feel better
-	static inline var hitBoxExtension:Float = 8;
+	static inline var hitBoxExtenstion:Float = 8;
 
-	// Skibidi
-	var selectedSprite = null;
 	public override function update(elapsed:Float) {
-		var mousePos = FlxG.mouse.getScreenPosition(__lastDrawCameras[0], FlxPoint.get());
-		if (hovered && FlxG.mouse.justPressed) {
+		if (hovered && FlxG.mouse.pressed) {
+			var mousePos = FlxG.mouse.getScreenPosition(__lastDrawCameras[0], FlxPoint.get());
+
 			for (sprite in [colorPicker, colorSlider]) {
 				var spritePos:FlxPoint = sprite.getScreenPosition(FlxPoint.get(), __lastDrawCameras[0]);
-				if (FlxMath.inBounds(mousePos.x, spritePos.x - (hitBoxExtension/2), spritePos.x - (hitBoxExtension/2) + (sprite.width + hitBoxExtension)) && FlxMath.inBounds(mousePos.y, spritePos.y - (hitBoxExtension/2), spritePos.y - (hitBoxExtension/2) + (sprite.height + hitBoxExtension))) {
-					selectedSprite = sprite;
+
+				if (((mousePos.x > (spritePos.x - (hitBoxExtenstion/2))) && (mousePos.x < spritePos.x - (hitBoxExtenstion/2) + (sprite.width + hitBoxExtenstion))) && ((mousePos.y > (spritePos.y - (hitBoxExtenstion/2))) && (mousePos.y < spritePos.y - (hitBoxExtenstion/2) + (sprite.height + hitBoxExtenstion)))) {
+					mousePos -= FlxPoint.weak(spritePos.x, spritePos.y);
+					mousePos.set(FlxMath.bound(mousePos.x, 0, sprite.width), FlxMath.bound(mousePos.y, 0, sprite.height));
+
+					if (sprite == colorSlider) updateColorSliderMouse(mousePos);
+					if (sprite == colorPicker) updateColorPickerMouse(mousePos);
+					updateWheel();
+
+					spritePos.put();
 					break;
 				}
 			}
+			mousePos.put();
 		}
 
-		if (selectedSprite != null) {
-			var spritePos:FlxPoint = selectedSprite.getScreenPosition(FlxPoint.get(), __lastDrawCameras[0]);
-			mousePos -= FlxPoint.weak(spritePos.x, spritePos.y);
-			mousePos.set(CoolUtil.bound(mousePos.x, 0, selectedSprite.width), CoolUtil.bound(mousePos.y, 0, selectedSprite.height));
-
-			if (selectedSprite == colorSlider) updateColorSliderMouse(mousePos);
-			if (selectedSprite == colorPicker) updateColorPickerMouse(mousePos);
-			updateWheel();
-			spritePos.put();
-
-			if (FlxG.mouse.justReleased) selectedSprite = null;
-		}
-		mousePos.put();
 		super.update(elapsed);
 	}
 }

@@ -1,14 +1,14 @@
 package funkin.backend.scripting;
 
-import flixel.util.FlxDestroyUtil.IFlxDestroyable;
-import flixel.util.FlxStringUtil;
-import haxe.io.Path;
 import lime.app.Application;
+import flixel.util.FlxDestroyUtil.IFlxDestroyable;
+import haxe.io.Path;
+import hscript.IHScriptCustomConstructor;
+import flixel.util.FlxStringUtil;
 
 @:allow(funkin.backend.scripting.ScriptPack)
 /**
  * Class used for scripting.
- * Use `Script.create` to create a script.
  */
 class Script extends FlxBasic implements IFlxDestroyable {
 	/**
@@ -17,151 +17,92 @@ class Script extends FlxBasic implements IFlxDestroyable {
 	 */
 	public static var staticVariables:Map<String, Dynamic> = [];
 
-	/**
-	 * Gets the default variables for a script.
-	 */
 	public static function getDefaultVariables(?script:Script):Map<String, Dynamic> {
 		return [
 			// Haxe related stuff
-			"Std"				=> Std,
-			"Math"				=> Math,
-			"Reflect"			=> Reflect,
-			"StringTools"		=> StringTools,
-			"Json"				=> haxe.Json,
+			"Std"			   => Std,
+			"Math"			  => Math,
+			"Reflect"			  => Reflect,
+			"StringTools"	   => StringTools,
+			"Json"			  => haxe.Json,
 
 			// OpenFL & Lime related stuff
 			"Assets"			=> openfl.utils.Assets,
-			"Application"		=> lime.app.Application,
+			"Application"	   => lime.app.Application,
 			"Main"				=> funkin.backend.system.Main,
 			"window"			=> lime.app.Application.current.window,
 
 			// Flixel related stuff
-			"state"				=> flixel.FlxG.state,
-			"FlxG"				=> flixel.FlxG,
-			"FlxSprite"			=> flixel.FlxSprite,
-			"FlxBasic"			=> flixel.FlxBasic,
-			"FlxCamera"			=> flixel.FlxCamera,
-			"FlxEase"			=> flixel.tweens.FlxEase,
-			"FlxTween"			=> flixel.tweens.FlxTween,
-			"FlxSound"			=> flixel.sound.FlxSound,
-			"FlxAssets"			=> flixel.system.FlxAssets,
-			"FlxMath"			=> flixel.math.FlxMath,
-			"FlxGroup"			=> flixel.group.FlxGroup,
-			"FlxTypedGroup"		=> flixel.group.FlxGroup.FlxTypedGroup,
+			"FlxG"			  => flixel.FlxG,
+			"FlxSprite"		 => flixel.FlxSprite,
+			"FlxBasic"		  => flixel.FlxBasic,
+			"FlxCamera"		 => flixel.FlxCamera,
+			"state"			 => flixel.FlxG.state,
+			"FlxEase"		   => flixel.tweens.FlxEase,
+			"FlxTween"		  => flixel.tweens.FlxTween,
+			"FlxSound"		  => flixel.sound.FlxSound,
+			"FlxAssets"		 => flixel.system.FlxAssets,
+			"FlxMath"		   => flixel.math.FlxMath,
+			"FlxGroup"		  => flixel.group.FlxGroup,
+			"FlxTypedGroup"	 => flixel.group.FlxGroup.FlxTypedGroup,
 			"FlxSpriteGroup"	=> flixel.group.FlxSpriteGroup,
-			"FlxTypeText"		=> flixel.addons.text.FlxTypeText,
-			"FlxText"			=> flixel.text.FlxText,
-			"FlxTimer"			=> flixel.util.FlxTimer,
-			"FlxPoint"			=> CoolUtil.getMacroAbstractClass("flixel.math.FlxPoint"),
-			"FlxAxes"			=> CoolUtil.getMacroAbstractClass("flixel.util.FlxAxes"),
-			"FlxColor"			=> CoolUtil.getMacroAbstractClass("flixel.util.FlxColor"),
+			"FlxTypeText"	   => flixel.addons.text.FlxTypeText,
+			"FlxText"		   => flixel.text.FlxText,
+			"FlxTimer"		  => flixel.util.FlxTimer,
+			"FlxPoint"		  => CoolUtil.getMacroAbstractClass("flixel.math.FlxPoint"),
+			"FlxAxes"		   => CoolUtil.getMacroAbstractClass("flixel.util.FlxAxes"),
+			"FlxColor"		  => CoolUtil.getMacroAbstractClass("flixel.util.FlxColor"),
 
 			// Engine related stuff
 			"engine"			=> {
-				commit: Flags.COMMIT_NUMBER,
-				hash: Flags.COMMIT_HASH,
+				commit: funkin.backend.system.macros.GitCommitMacro.commitNumber,
+				hash: funkin.backend.system.macros.GitCommitMacro.commitHash,
 				build: 2675, // 2675 being the last build num before it was removed
 				name: "Codename Engine"
 			},
-			"ModState"			=> funkin.backend.scripting.ModState,
-			"ModSubState"		=> funkin.backend.scripting.ModSubState,
-			"PlayState"			=> funkin.game.PlayState,
-			"GameOverSubstate"	=> funkin.game.GameOverSubstate,
+			"ModState"		  => funkin.backend.scripting.ModState,
+			"ModSubState"	   => funkin.backend.scripting.ModSubState,
+			"PlayState"		 => funkin.game.PlayState,
+			"GameOverSubstate"  => funkin.game.GameOverSubstate,
 			"HealthIcon"		=> funkin.game.HealthIcon,
-			"HudCamera"			=> funkin.game.HudCamera,
-			"Note"				=> funkin.game.Note,
-			"Strum"				=> funkin.game.Strum,
-			"StrumLine"			=> funkin.game.StrumLine,
-			"Character"			=> funkin.game.Character,
-			"Boyfriend"			=> funkin.game.Character, // for compatibility
-			"PauseSubstate"		=> funkin.menus.PauseSubState,
-			"FreeplayState"		=> funkin.menus.FreeplayState,
-			"MainMenuState"		=> funkin.menus.MainMenuState,
-			"PauseSubState"		=> funkin.menus.PauseSubState,
+			"HudCamera"		 => funkin.game.HudCamera,
+			"Note"			  => funkin.game.Note,
+			"Strum"			 => funkin.game.Strum,
+			"StrumLine"		 => funkin.game.StrumLine,
+			"Character"		 => funkin.game.Character,
+			"Boyfriend"		 => funkin.game.Character, // for compatibility
+			"PauseSubstate"	 => funkin.menus.PauseSubState,
+			"FreeplayState"	 => funkin.menus.FreeplayState,
+			"MainMenuState"	 => funkin.menus.MainMenuState,
+			"PauseSubState"	 => funkin.menus.PauseSubState,
 			"StoryMenuState"	=> funkin.menus.StoryMenuState,
 			"TitleState"		=> funkin.menus.TitleState,
-			"Options"			=> funkin.options.Options,
-			"Paths"				=> funkin.backend.assets.Paths,
-			"Conductor"			=> funkin.backend.system.Conductor,
-			"FunkinShader"		=> funkin.backend.shaders.FunkinShader,
-			"CustomShader"		=> funkin.backend.shaders.CustomShader,
+			"Options"		   => funkin.options.Options,
+			"Paths"			 => funkin.backend.assets.Paths,
+			"Conductor"		 => funkin.backend.system.Conductor,
+			"FunkinShader"	  => funkin.backend.shaders.FunkinShader,
+			"CustomShader"	  => funkin.backend.shaders.CustomShader,
 			"FunkinText"		=> funkin.backend.FunkinText,
 			"FlxAnimate"		=> funkin.backend.FlxAnimate,
 			"FunkinSprite"		=> funkin.backend.FunkinSprite,
-			"Alphabet"			=> funkin.menus.ui.Alphabet,
+			"Alphabet"		  => funkin.menus.ui.Alphabet,
 
-			"CoolUtil"			=> funkin.backend.utils.CoolUtil,
-			"IniUtil"			=> funkin.backend.utils.IniUtil,
-			"XMLUtil"			=> funkin.backend.utils.XMLUtil,
-			#if sys "ZipUtil"	=> funkin.backend.utils.ZipUtil, #end
-			"MarkdownUtil"		=> funkin.backend.utils.MarkdownUtil,
+			"CoolUtil"		  => funkin.backend.utils.CoolUtil,
+			"IniUtil"		   => funkin.backend.utils.IniUtil,
+			"XMLUtil"		   => funkin.backend.utils.XMLUtil,
+			#if sys "ZipUtil"   => funkin.backend.utils.ZipUtil, #end
+			"MarkdownUtil"	  => funkin.backend.utils.MarkdownUtil,
 			"EngineUtil"		=> funkin.backend.utils.EngineUtil,
 			"MemoryUtil"		=> funkin.backend.utils.MemoryUtil,
 			"BitmapUtil"		=> funkin.backend.utils.BitmapUtil,
-
-			#if TRANSLATIONS_SUPPORT
-			"TranslationUtil"	=> funkin.backend.utils.TranslationUtil,
-			"translate"		=> funkin.backend.utils.TranslationUtil.get,
-			#end
 		];
 	}
-
-	/**
-	 * Used internally to keep backwards compatibility with old scripts.
-	 * This gets set on `hscript.Interp.importRedirects`,
-	 * if you wanna modify it, please edit `hscript.Interp.importRedirects` directly.
-	**/
-	public static function getDefaultImportRedirects():Map<String, String> {
-		var redirects:Map<String, String> = [];
-
-		// Events
-		final events = "funkin.backend.scripting.events.";
-		redirects[events + "CharacterNodeEvent"]			= events + "character.CharacterNodeEvent";
-		redirects[events + "CharacterXMLEvent"]				= events + "character.CharacterXMLEvent";
-		redirects[events + "DanceEvent"]					= events + "character.DanceEvent";
-		redirects[events + "DirectionAnimEvent"]			= events + "character.DirectionAnimEvent";
-		redirects[events + "DiscordPresenceUpdateEvent"]	= events + "discord.DiscordPresenceUpdateEvent";
-		redirects[events + "GameOverCreationEvent"]			= events + "gameover.GameOverCreationEvent";
-		redirects[events + "CamMoveEvent"]					= events + "gameplay.CamMoveEvent";
-		redirects[events + "CountdownEvent"]				= events + "gameplay.CountdownEvent";
-		redirects[events + "EventGameEvent"]				= events + "gameplay.EventGameEvent";
-		redirects[events + "GameOverEvent"]					= events + "gameplay.GameOverEvent";
-		redirects[events + "RatingUpdateEvent"]				= events + "gameplay.RatingUpdateEvent";
-		redirects[events + "HealthIconChangeEvent"]			= events + "healthicon.HealthIconChangeEvent";
-		redirects[events + "FreeplayAlphaUpdateEvent"]		= events + "menu.freeplay.FreeplayAlphaUpdateEvent";
-		redirects[events + "FreeplaySongSelectEvent"]		= events + "menu.freeplay.FreeplaySongSelectEvent";
-		redirects[events + "MenuChangeEvent"]				= events + "menu.MenuChangeEvent";
-		redirects[events + "PauseCreationEvent"]			= events + "menu.pause.PauseCreationEvent";
-		redirects[events + "WeekSelectEvent"]				= events + "menu.storymenu.WeekSelectEvent";
-		redirects[events + "InputSystemEvent"]				= events + "note.InputSystemEvent";
-		redirects[events + "NoteCreationEvent"]				= events + "note.NoteCreationEvent";
-		redirects[events + "NoteHitEvent"]					= events + "note.NoteHitEvent";
-		redirects[events + "NoteMissEvent"]					= events + "note.NoteMissEvent";
-		redirects[events + "NoteUpdateEvent"]				= events + "note.NoteUpdateEvent";
-		redirects[events + "SimpleNoteEvent"]				= events + "note.SimpleNoteEvent";
-		redirects[events + "StrumCreationEvent"]			= events + "note.StrumCreationEvent";
-		redirects[events + "SplashShowEvent"]				= events + "splash.SplashShowEvent";
-		redirects[events + "PlayAnimContext"]				= events + "sprite.PlayAnimContext";
-		redirects[events + "PlayAnimEvent"]					= events + "sprite.PlayAnimEvent";
-		redirects[events + "StageNodeEvent"]				= events + "stage.StageNodeEvent";
-		redirects[events + "StageXMLEvent"]					= events + "stage.StageXMLEvent";
-
-		// Old State Names
-		redirects["funkin.menus.BetaWarningState"] 			= "funkin.menus.WarningState";
-
-		return redirects;
-	}
-
-	/**
-	 * Gets the default defines for a script.
-	 * Includes all of the defines that the build was compiled with.
-	 */
 	public static function getDefaultPreprocessors():Map<String, Dynamic> {
 		var defines = funkin.backend.system.macros.DefinesMacro.defines;
 		defines.set("CODENAME_ENGINE", true);
-		defines.set("CODENAME_VER", Flags.VERSION);
+		defines.set("CODENAME_VER", Application.current.meta.get('version'));
 		defines.set("CODENAME_BUILD", 2675); // 2675 being the last build num before it was removed
-		defines.set("CODENAME_COMMIT", Flags.COMMIT_NUMBER);
+		defines.set("CODENAME_COMMIT", funkin.backend.system.macros.GitCommitMacro.commitNumber);
 		return defines;
 	}
 	/**
@@ -197,10 +138,6 @@ class Script extends FlxBasic implements IFlxDestroyable {
 
 	private var didLoad:Bool = false;
 
-	/**
-	 * Remapped filenames.
-	 * Used for trace messages, to show what mod the script is from.
-	 */
 	public var remappedNames:Map<String, String> = [];
 
 	/**
@@ -216,7 +153,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 					var arr = Assets.getText(path).split("________PACKSEP________");
 					fromString(arr[1], arr[0]);
 				case "lua":
-					Logs.error("Lua is not supported in this engine. Use HScript instead.");
+					Logs.trace("Lua is not supported in this engine. Use HScript instead.", ERROR);
 					new DummyScript(path);
 				default:
 					new DummyScript(path);
@@ -235,7 +172,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 			case "hx" | "hscript" | "hsc" | "hxs":
 				new HScript(path).loadFromString(code);
 			case "lua":
-				Logs.error("Lua is not supported in this engine. Use HScript instead.");
+				Logs.trace("Lua is not supported in this engine. Use HScript instead.", ERROR);
 				new DummyScript(path).loadFromString(code);
 			default:
 				new DummyScript(path).loadFromString(code);
@@ -303,7 +240,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 		if(remappedNames.exists(fileName))
 			fileName = remappedNames.get(fileName);
 		Logs.traceColored([
-			Logs.logText(fileName + ': ', GREEN),
+			Logs.logText('${fileName}: ', GREEN),
 			Logs.logText(Std.string(v))
 		], TRACE);
 	}
@@ -326,7 +263,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 	}
 
 	/**
-	 * Loads the code from a string, doesn't really work after the script has been loaded
+	 * Loads the code from a string, doesnt really work after the script has been loaded
 	 * @param code The code.
 	 */
 	public function loadFromString(code:String) {
@@ -385,14 +322,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 	private function onCall(func:String, parameters:Array<Dynamic>):Dynamic {
 		return null;
 	}
-	/**
-	 * Called when the script is created.
-	 * @param path Path to the script
-	 */
 	public function onCreate(path:String) {}
 
-	/**
-	 * Called when the script is loaded.
-	 */
 	public function onLoad() {}
 }
