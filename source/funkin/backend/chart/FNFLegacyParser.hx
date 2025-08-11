@@ -6,7 +6,7 @@ import funkin.backend.system.Conductor;
 class FNFLegacyParser {
 	public static function parse(data:Dynamic, result:ChartData) {
 		// base fnf chart parsing
-		var data:SwagSong = Chart.cleanSongData(data);
+		var data:SwagSongLegacy = Chart.cleanSongData(data);
 
 		result.scrollSpeed = data.speed;
 		result.stage = data.stage;
@@ -110,7 +110,7 @@ class FNFLegacyParser {
 
 	// have conductor set up BEFORE you run this :D -lunar
 	public static function encode(chart:ChartData):Dynamic {
-		var base:SwagSong = __convertToSwagSong(chart);
+		var base:SwagSongLegacy = __convertToSwagSong(chart);
 		base.notes = __convertToSwagSections(chart);
 
 		for (strumLine in chart.strumLines)
@@ -135,8 +135,8 @@ class FNFLegacyParser {
 	}
 
 	// To make it easier to write the psych parser... -lunar
-	@:noCompletion public static function __convertToSwagSong(chart:ChartData):SwagSong {
-		var base:SwagSong = {
+	@:noCompletion public static function __convertToSwagSong(chart:ChartData):SwagSongLegacy {
+		var base:SwagSongLegacy = {
 			song: chart.meta.name,
 			notes: null,
 			bpm: chart.meta.bpm,
