@@ -110,7 +110,7 @@ class BaseGameParser {
 		}
 	}
 }
-typedef SwagSong =
+typedef SwagSongLegacy =
 {
 	var song:String;
 	var notes:Array<SwagSection>;
