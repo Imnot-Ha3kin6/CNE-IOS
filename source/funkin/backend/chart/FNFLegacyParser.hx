@@ -5,7 +5,6 @@ import funkin.backend.system.Conductor;
 
 class FNFLegacyParser {
 	public static function parse(data:Dynamic, result:ChartData) {
-		// base fnf chart parsing
 		var data:SwagSongLegacy = Chart.cleanSongData(data);
 
 		result.scrollSpeed = data.speed;
@@ -116,7 +115,7 @@ class FNFLegacyParser {
 		for (strumLine in chart.strumLines)
 			for (note in strumLine.notes) {
 				var section:Int = Math.floor(Conductor.getStepForTime(note.time) / Conductor.getMeasureLength());
-				var swagSection:SwagSection = base.notes[section];
+				var swagSection:SwagSectionLegacy = base.notes[section];
 				if (section > 0 && section < base.notes.length) {
 					var sectionNote:Array<Dynamic> = [
 						note.time, // TIME
@@ -140,7 +139,7 @@ class FNFLegacyParser {
 			song: chart.meta.name,
 			notes: null,
 			bpm: chart.meta.bpm,
-			needsVoices: chart.meta.needsVoices,
+			needsVoices: chart.needsVoices,
 			speed: chart.scrollSpeed,
 
 			player1: null,
@@ -160,15 +159,15 @@ class FNFLegacyParser {
 		return base;
 	}
 
-	@:noCompletion public static function __convertToSwagSections(chart:ChartData):Array<SwagSection> {
+	@:noCompletion public static function __convertToSwagSections(chart:ChartData):Array<SwagSectionLegacy> {
 		var events:Array<ChartEvent> = [for (event in chart.events) Reflect.copy(event)];
 
 		var measures:Float = Conductor.getMeasuresLength();
 		var sections:Int = Math.floor(measures) + (measures % 1 > 0 ? 1 : 0);
 
-		var notes:Array<SwagSection> = cast new haxe.ds.Vector<SwagSection>(sections);
+		var notes:Array<SwagSectionLegacy> = cast new haxe.ds.Vector<SwagSectionLegacy>(sections);
 		for (section in 0...sections) {
-			var baseSection:SwagSection = {
+			var baseSection:SwagSectionLegacy = {
 				sectionNotes: [],
 				lengthInSteps: Std.int(Conductor.getMeasureLength()),
 				mustHitSection: notes[section-1] != null ? notes[section-1].mustHitSection : false,
@@ -196,10 +195,10 @@ class FNFLegacyParser {
 	}
 }
 
-typedef SwagSong =
+typedef SwagSongLegacy =
 {
 	var song:String;
-	var notes:Array<SwagSection>;
+	var notes:Array<SwagSectionLegacy>;
 	var bpm:Float;
 	var needsVoices:Bool;
 	var speed:Float;
@@ -220,7 +219,7 @@ typedef SwagSong =
 	var ?stepsPerBeat:Float;
 }
 
-typedef SwagSection =
+typedef SwagSectionLegacy =
 {
 	var sectionNotes:Array<Dynamic>;
 	var lengthInSteps:Int;
