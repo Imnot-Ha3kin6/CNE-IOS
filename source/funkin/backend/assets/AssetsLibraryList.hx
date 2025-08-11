@@ -17,7 +17,7 @@ class AssetsLibraryList extends AssetLibrary {
 		libraries.remove(lib);
 		return lib;
 	}
-	public function existsSpecific(id:String, type:String, source:AssetSource = BOTH) {
+	public function existsSpecific(id:String, type:String, source:AssetSource = AssetSource.BOTH) {
 		if (!id.startsWith("assets/") && exists('assets/$id', type))
 			return true;
 		for(k=>e in libraries) {
@@ -28,9 +28,9 @@ class AssetsLibraryList extends AssetLibrary {
 		return false;
 	}
 	public override inline function exists(id:String, type:String):Bool
-		return existsSpecific(id, type, BOTH);
+		return existsSpecific(id, type, AssetSource.BOTH);
 
-	public function getSpecificPath(id:String, source:AssetSource = BOTH) {
+	public function getSpecificPath(id:String, source:AssetSource = AssetSource.BOTH) {
 		for(k=>e in libraries) {
 			if (shouldSkipLib(k, source)) continue;
 
@@ -45,9 +45,9 @@ class AssetsLibraryList extends AssetLibrary {
 	}
 
 	public override inline function getPath(id:String)
-		return getSpecificPath(id, BOTH);
+		return getSpecificPath(id, AssetSource.BOTH);
 
-	public function getFiles(folder:String, source:AssetSource = BOTH):Array<String> {
+	public function getFiles(folder:String, source:AssetSource = AssetSource.BOTH):Array<String> {
 		var content:Array<String> = [];
 		for(k=>e in libraries) {
 			if (shouldSkipLib(k, source)) continue;
@@ -71,7 +71,7 @@ class AssetsLibraryList extends AssetLibrary {
 		return content;
 	}
 
-	public function getFolders(folder:String, source:AssetSource = BOTH):Array<String> {
+	public function getFolders(folder:String, source:AssetSource = AssetSource.BOTH):Array<String> {
 		var content:Array<String> = [];
 		for(k=>e in libraries) {
 			if (shouldSkipLib(k, source)) continue;
@@ -95,7 +95,7 @@ class AssetsLibraryList extends AssetLibrary {
 		return content;
 	}
 
-	public function getSpecificAsset(id:String, type:String, source:AssetSource = BOTH):Dynamic {
+	public function getSpecificAsset(id:String, type:String, source:AssetSource = AssetSource.BOTH):Dynamic {
 		try {
 			if (!id.startsWith("assets/")) {
 				var ass = getSpecificAsset('assets/$id', type, source);
@@ -123,13 +123,13 @@ class AssetsLibraryList extends AssetLibrary {
 
 	private function shouldSkipLib(k:Int, source:AssetSource) {
 		return switch(source) {
-			case BOTH:	  false;
-			case SOURCE:	k < libraries.length - __defaultLibraries.length;
-			case MODS:	  k >= libraries.length - __defaultLibraries.length;
+			case AssetSource.BOTH:	  false;
+			case AssetSource.SOURCE:	k < libraries.length - __defaultLibraries.length;
+			case AssetSource.MODS:	  k >= libraries.length - __defaultLibraries.length;
 		};
 	}
 	public override inline function getAsset(id:String, type:String):Dynamic
-		return getSpecificAsset(id, type, BOTH);
+		return getSpecificAsset(id, type, AssetSource.BOTH);
 
 	public override function isLocal(id:String, type:String) {
 		return true;
@@ -182,7 +182,8 @@ class AssetsLibraryList extends AssetLibrary {
 	}
 }
 
-enum abstract AssetSource(Null<Bool>) from Bool from Null<Bool> to Null<Bool> {
+// rename enum abstract here to avoid clash
+enum abstract AssetSourceBool(Null<Bool>) from Bool from Null<Bool> to Null<Bool> {
 	var SOURCE = true;
 	var MODS = false;
 	var BOTH = null;
