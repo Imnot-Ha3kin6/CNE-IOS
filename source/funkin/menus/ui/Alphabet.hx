@@ -1,19 +1,4 @@
-package funkin.menus.ui;
-
-import openfl.utils.AssetLibrary;
-import haxe.xml.Access;
-import funkin.backend.assets.LimeLibrarySymbol;
-import funkin.backend.assets.IModsAssetLibrary;
-import flixel.group.FlxSpriteGroup;
-import flixel.util.FlxTimer;
-import flixel.util.FlxColor;
-
-using StringTools;
-
-/**
- * Loosely based on FlxTypeText lolol
- */
-class Alphabet extends FlxSpriteGroup
+class ClassicAlphabet extends FlxSpriteGroup
 {
 	public var delay:Float = 0.05;
 	public var paused:Bool = false;
@@ -41,7 +26,7 @@ class Alphabet extends FlxSpriteGroup
 	private override function set_color(c:Int):Int {
 		for(e in group.members) {
 			if (e is AlphaCharacter) {
-				var char = cast(e, AlphaCharacter);
+				var char:AlphaCharacter = cast e;
 				char.setColor(c, isBold);
 			}
 		}
@@ -52,7 +37,9 @@ class Alphabet extends FlxSpriteGroup
 	public function refreshAlphabetXML(path:String) {
 		AlphaCharacter.__alphaPath = Paths.getAssetsRoot() + path;
 		try {
-			var xml = new Access(Xml.parse(Assets.getText(path)).firstElement());
+			var file = Assets.getText(path);
+			if(file == null) return;
+			var xml = new Access(Xml.parse(file).firstElement());
 			AlphaCharacter.boldAnims = [];
 			AlphaCharacter.letterAnims = [];
 			AlphaCharacter.boldAlphabetPath = AlphaCharacter.letterAlphabetPath = 'ui/alphabet';
@@ -126,12 +113,16 @@ class Alphabet extends FlxSpriteGroup
 		doSplitWords();
 
 		var xPos:Float = 0;
-		for (character in splitWords)
+		var curRow:Int = 0;
+		for (i=>character in splitWords)
 		{
 			if (lastSprite != null)
 				xPos = lastSprite.x + lastSprite.width - x;
 
+			if (xPosResetted && !(xPosResetted = false)) xPos = 0;
+
 			var letter:AlphaCharacter = new AlphaCharacter(xPos, 0);
+			letter.row = curRow;
 			if (isBold)
 				letter.createBold(character);
 			else
@@ -145,6 +136,11 @@ class Alphabet extends FlxSpriteGroup
 			add(letter);
 
 			lastSprite = letter;
+			if (_finalText.fastCodeAt(i) == "\n".code)
+			{
+				xPosResetted = true;
+				curRow += 1;
+			}
 		}
 	}
 
@@ -153,7 +149,7 @@ class Alphabet extends FlxSpriteGroup
 		splitWords = _finalText.split("");
 	}
 
-	//public var personTalking:String = 'gf';
+	//public var personTalking:String = Flags.DEFAULT_GIRLFRIEND;
 
 	public function startTypedText():Void
 	{
@@ -251,6 +247,8 @@ class AlphaCharacter extends FlxSprite
 		animation.addByPrefix(letter, boldAnims[letter], 24);
 		animation.play(letter);
 		updateHitbox();
+
+		y += row * height;
 	}
 
 	public function createLetter(letter:String):Void
