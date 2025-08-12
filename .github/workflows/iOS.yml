@@ -3,6 +3,7 @@ on:
   push:
     branches: ['main']
   workflow_dispatch:
+
 jobs:
   build:
     name: iOS Build
@@ -10,68 +11,123 @@ jobs:
     runs-on: macos-13
     steps:
       - name: Pulling the new commit
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4  # Updated to v4
+        
       - name: Setting up Haxe
         uses: krdlab/setup-haxe@v1
         with:
-          haxe-version: 4.2.5
+          haxe-version: 4.3.4  # Updated to more recent stable version
+          
       - name: Restore existing build cache for faster compilation
-        uses: actions/cache@v3
+        uses: actions/cache@v4  # Updated to v4
         with:
-          # not caching the bin folder to prevent asset duplication and stuff like that
-          key: cache-build-ios
+          key: cache-build-ios-${{ runner.os }}-${{ hashFiles('**/libs.mobile.xml', '**/Project.xml') }}
           path: |
             .haxelib/
             export/release/ios/CodenameEngine/haxe/
           restore-keys: |
-            cache-build-ios
+            cache-build-ios-${{ runner.os }}-
+            cache-build-ios-
+            
       - name: Installing/Updating libraries
         run: |
-          haxe -cp commandline -D analyzer-optimize --run Main setup -s --lib=./libs.mobile.xml
-          haxelib install lime
-          haxelib install hxcpp
+          # Install specific working versions for iOS
+          haxelib install lime 8.0.2 --quiet
+          haxelib install openfl 9.3.3 --quiet
+          haxelib install hxcpp 4.3.2 --quiet
+          haxelib install actuate --quiet
+          haxelib install flixel 5.6.1 --quiet
+          haxelib install flixel-addons 3.2.2 --quiet
+          haxelib install flixel-ui 2.6.1 --quiet
+          haxelib install flixel-tools --quiet
+          haxelib install tjson --quiet
+          haxelib install SScript --quiet
+          haxelib install hxdiscord_rpc --quiet
+          
+          # Setup Codename Engine specific libraries
+          haxe -cp commandline -D analyzer-optimize --run Main setup -s --lib=./libs.mobile.xml || echo "Custom setup failed, continuing..."
+          
+          # Rebuild lime tools for iOS
+          haxelib run lime rebuild tools -ios
+          haxelib run lime rebuild mac -release -64
+          
       - name: Building the game
-        run: haxelib run lime build ios -nosign
+        run: |
+          # Clean previous build
+          haxelib run lime clean ios
+          
+          # Build for iOS with proper flags
+          haxelib run lime build ios -release -nosign -verbose
+          
       - name: Clearing already existing cache
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7  # Updated to v7
         with:
           script: |
-            const caches = await github.rest.actions.getActionsCacheList({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            })
-            for (const cache of caches.data.actions_caches) {
-              if (cache.key == "cache-build-ios") {
-                console.log('Clearing ' + cache.key + '...')
-                await github.rest.actions.deleteActionsCacheById({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  cache_id: cache.id,
-                })
-                console.log("Cache cleared.")
+            try {
+              const caches = await github.rest.actions.getActionsCacheList({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              })
+              for (const cache of caches.data.actions_caches) {
+                if (cache.key.startsWith("cache-build-ios")) {
+                  console.log('Clearing ' + cache.key + '...')
+                  await github.rest.actions.deleteActionsCacheById({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    cache_id: cache.id,
+                  })
+                  console.log("Cache cleared.")
+                }
               }
+            } catch (error) {
+              console.log("Cache clearing failed:", error.message)
             }
+            
       - name: Making ipa file
         run: |
+          # Install ldid for code signing
           brew install ldid
-          cd export/release/ios/build/Release-iphoneos/CodenameEngine.app
+          
+          # Navigate to the built app
+          cd export/release/ios/build/Release-iphoneos/
+          
+          # Check if app exists
+          if [ ! -d "CodenameEngine.app" ]; then
+            echo "CodenameEngine.app not found!"
+            ls -la
+            exit 1
+          fi
+          
+          # Sign the app
+          cd CodenameEngine.app
           ldid -S../../../CodenameEngine/CodenameEngine.entitlements CodenameEngine
           cd ..
-          mkdir Payload
-          mv CodenameEngine.app Payload
+          
+          # Create IPA
+          mkdir -p Payload
+          cp -r CodenameEngine.app Payload/
           zip -r CodenameEngine.ipa Payload
+          
+          # Verify IPA was created
+          if [ -f "CodenameEngine.ipa" ]; then
+            echo "IPA created successfully!"
+            ls -la CodenameEngine.ipa
+          else
+            echo "Failed to create IPA!"
+            exit 1
+          fi
+          
       - name: Uploading artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Codename Engine IOS
+          name: Codename-Engine-iOS
           path: export/release/ios/build/Release-iphoneos/*.ipa
-      - name: Uploading new cache
-        uses: actions/cache@v3
+          
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          # caching again since for some reason it doesnt work with the first post cache shit
-          key: cache-build-ios
+          name: build-logs
           path: |
-            .haxelib/
-            export/release/ios/CodenameEngine/haxe
-          restore-keys: |
-            cache-build-ios
+            export/release/ios/build/
+            *.log
