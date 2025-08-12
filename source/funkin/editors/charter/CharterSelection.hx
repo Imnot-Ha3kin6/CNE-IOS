@@ -32,7 +32,7 @@ class CharterSelection extends EditorTreeMenu {
 				var list:Array<OptionType> = [
 					for(d in s.difficulties) if (d != "")
 						new TextOption(d, "Press " + button + " to edit the chart for the selected difficulty", function() {
-							/*#if TOUCH_CONTROLS
+							#if TOUCH_CONTROLS
 							if (funkin.backend.system.Controls.instance.touchC)
 							{
 								openSubState(new UIWarningSubstate("Charter: Touch Not Supported!", "Please connect a keyboard and mouse to access this editor.", [
@@ -41,7 +41,7 @@ class CharterSelection extends EditorTreeMenu {
 							} else
 							#end
 							FlxG.switchState(new Charter(s.name, d));
-						*/})
+						})
 				];
 				list.push(new NewOption("New Difficulty", "New Difficulty", function() {
 					#if TOUCH_CONTROLS

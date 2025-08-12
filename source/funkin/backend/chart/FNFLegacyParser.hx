@@ -5,7 +5,8 @@ import funkin.backend.system.Conductor;
 
 class FNFLegacyParser {
 	public static function parse(data:Dynamic, result:ChartData) {
-		var data:SwagSongLegacy = Chart.cleanSongData(data);
+		// base fnf chart parsing
+		var data:SwagSong = Chart.cleanSongData(data);
 
 		result.scrollSpeed = data.speed;
 		result.stage = data.stage;
@@ -109,13 +110,13 @@ class FNFLegacyParser {
 
 	// have conductor set up BEFORE you run this :D -lunar
 	public static function encode(chart:ChartData):Dynamic {
-		var base:SwagSongLegacy = __convertToSwagSong(chart);
+		var base:SwagSong = __convertToSwagSong(chart);
 		base.notes = __convertToSwagSections(chart);
 
 		for (strumLine in chart.strumLines)
 			for (note in strumLine.notes) {
 				var section:Int = Math.floor(Conductor.getStepForTime(note.time) / Conductor.getMeasureLength());
-				var swagSection:SwagSectionLegacy = base.notes[section];
+				var swagSection:SwagSection = base.notes[section];
 				if (section > 0 && section < base.notes.length) {
 					var sectionNote:Array<Dynamic> = [
 						note.time, // TIME
@@ -134,12 +135,12 @@ class FNFLegacyParser {
 	}
 
 	// To make it easier to write the psych parser... -lunar
-	@:noCompletion public static function __convertToSwagSong(chart:ChartData):SwagSongLegacy {
-		var base:SwagSongLegacy = {
+	@:noCompletion public static function __convertToSwagSong(chart:ChartData):SwagSong {
+		var base:SwagSong = {
 			song: chart.meta.name,
 			notes: null,
 			bpm: chart.meta.bpm,
-			needsVoices: chart.needsVoices,
+			needsVoices: chart.meta.needsVoices,
 			speed: chart.scrollSpeed,
 
 			player1: null,
@@ -159,15 +160,15 @@ class FNFLegacyParser {
 		return base;
 	}
 
-	@:noCompletion public static function __convertToSwagSections(chart:ChartData):Array<SwagSectionLegacy> {
+	@:noCompletion public static function __convertToSwagSections(chart:ChartData):Array<SwagSection> {
 		var events:Array<ChartEvent> = [for (event in chart.events) Reflect.copy(event)];
 
 		var measures:Float = Conductor.getMeasuresLength();
 		var sections:Int = Math.floor(measures) + (measures % 1 > 0 ? 1 : 0);
 
-		var notes:Array<SwagSectionLegacy> = cast new haxe.ds.Vector<SwagSectionLegacy>(sections);
+		var notes:Array<SwagSection> = cast new haxe.ds.Vector<SwagSection>(sections);
 		for (section in 0...sections) {
-			var baseSection:SwagSectionLegacy = {
+			var baseSection:SwagSection = {
 				sectionNotes: [],
 				lengthInSteps: Std.int(Conductor.getMeasureLength()),
 				mustHitSection: notes[section-1] != null ? notes[section-1].mustHitSection : false,
@@ -195,10 +196,10 @@ class FNFLegacyParser {
 	}
 }
 
-typedef SwagSongLegacy =
+typedef SwagSong =
 {
 	var song:String;
-	var notes:Array<SwagSectionLegacy>;
+	var notes:Array<SwagSection>;
 	var bpm:Float;
 	var needsVoices:Bool;
 	var speed:Float;
@@ -219,7 +220,7 @@ typedef SwagSongLegacy =
 	var ?stepsPerBeat:Float;
 }
 
-typedef SwagSectionLegacy =
+typedef SwagSection =
 {
 	var sectionNotes:Array<Dynamic>;
 	var lengthInSteps:Int;
